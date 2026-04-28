@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#1c2b1a"/>
+<meta name="description" content="TreeLot driver app — your delivery route for today"/>
+<title>TreeLot Driver</title>
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;TreeLot Driver&quot;,&quot;short_name&quot;:&quot;TreeLot&quot;,&quot;start_url&quot;:&quot;/driver&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#1c2b1a&quot;,&quot;theme_color&quot;:&quot;#1c2b1a&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%231c2b1a'/%3E%3Ctext x='256' y='340' font-size='280' text-anchor='middle' fill='%23C0DD97'%3E🌲%3C/text%3E%3C/svg%3E&quot;,&quot;sizes&quot;:&quot;512x512&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overscroll-behavior:none;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#2C2C2A;overflow:hidden;}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:430px;margin:0 auto;background:#f5f4f0;position:relative;}
+
+/* ── SCREENS ─────────────────────────────── */
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.screen.active{display:flex;}
+
+/* ── PIN LOGIN ──────────────────────────── */
+.login-wrap{flex:1;display:flex;flex-direction:column;background:#1c2b1a;}
+.login-logo{padding:48px 24px 24px;text-align:center;}
+.login-logo-mark{font-size:32px;font-weight:500;color:#C0DD97;letter-spacing:-0.5px;}
+.login-logo-sub{font-size:13px;color:#639922;margin-top:4px;}
+.login-card{background:#fff;border-radius:20px 20px 0 0;flex:1;padding:28px 24px 16px;display:flex;flex-direction:column;}
+.login-title{font-size:20px;font-weight:500;color:#2C2C2A;margin-bottom:4px;}
+.login-sub{font-size:13px;color:#888780;margin-bottom:28px;line-height:1.5;}
+.driver-select-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+.driver-opt{padding:14px 16px;border-radius:12px;border:1.5px solid #d3d1c7;background:#f5f4f0;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color 0.15s,background 0.15s;}
+.driver-opt:active{background:#EAF3DE;border-color:#639922;}
+.driver-opt.selected{border-color:#639922;background:#EAF3DE;}
+.driver-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;flex-shrink:0;}
+.driver-opt-name{font-size:15px;font-weight:500;color:#2C2C2A;}
+.driver-opt-stops{font-size:12px;color:#888780;margin-top:1px;}
+.pin-section{margin-top:4px;}
+.pin-label{font-size:12px;font-weight:500;color:#888780;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;}
+.pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:20px;}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid #d3d1c7;background:#fff;transition:all 0.15s;}
+.pin-dot.filled{background:#639922;border-color:#639922;}
+.pin-dot.error{background:#E24B4A;border-color:#E24B4A;}
+.pin-shake{animation:shake 0.35s;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+/* numpad */
+.numpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.nk{height:60px;border-radius:14px;border:none;background:#fff;font-size:22px;font-weight:400;color:#2C2C2A;cursor:pointer;display:flex;align-items:center;justify-content:center;border:0.5px solid #d3d1c7;transition:background 0.1s,transform 0.1s;}
+.nk:active{background:#EAF3DE;transform:scale(0.95);}
+.nk.del-key{font-size:18px;color:#888780;background:#f5f4f0;}
+.nk.del-key:active{background:#d3d1c7;}
+.nk.empty-key{visibility:hidden;}
+.login-error{font-size:12px;color:#E24B4A;text-align:center;margin-top:12px;height:16px;}
+
+/* ── APP CHROME ─────────────────────────── */
+.app-bar{background:#1c2b1a;padding:0 16px;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.app-bar-left{display:flex;flex-direction:column;}
+.app-bar-name{font-size:15px;font-weight:500;color:#C0DD97;}
+.app-bar-date{font-size:11px;color:#639922;}
+.app-bar-right{display:flex;align-items:center;gap:10px;}
+.logout-btn{font-size:11px;color:#5DCAA5;background:transparent;border:0.5px solid #3B6D11;border-radius:6px;padding:5px 10px;cursor:pointer;font-family:inherit;}
+/* progress strip */
+.progress-strip{background:#243322;padding:10px 16px;display:flex;gap:0;flex-shrink:0;}
+.prog-seg{flex:1;text-align:center;position:relative;}
+.prog-seg+.prog-seg::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);height:1px;width:1px;background:#3B6D11;}
+.prog-val{font-size:22px;font-weight:500;color:#C0DD97;line-height:1;}
+.prog-lbl{font-size:9px;color:#5DCAA5;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;}
+.prog-val.alert{color:#EF9F27;}
+/* start route bar */
+.start-bar{background:#639922;padding:10px 16px;flex-shrink:0;display:none;}
+.start-bar.show{display:block;}
+.start-route-btn{width:100%;padding:13px;border-radius:10px;background:#fff;color:#27500A;font-size:14px;font-weight:500;border:none;cursor:pointer;font-family:inherit;}
+.start-route-btn:active{background:#EAF3DE;}
+
+/* ── ROUTE LIST ─────────────────────────── */
+.route-list{flex:1;overflow-y:auto;padding:10px 12px 24px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch;}
+
+/* stop card */
+.stop-card{background:#fff;border-radius:16px;border:1px solid #d3d1c7;overflow:hidden;transition:border-color 0.2s;}
+.stop-card.current{border:2px solid #639922;}
+.stop-card.done{opacity:0.55;}
+.stop-card.failed-card{border-color:#E24B4A;opacity:0.7;}
+/* card header */
+.sc-hdr{padding:13px 14px;display:flex;align-items:center;gap:11px;}
+.sc-num{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:#fff;flex-shrink:0;}
+.sc-meta{flex:1;}
+.sc-name{font-size:15px;font-weight:500;color:#2C2C2A;line-height:1.2;}
+.sc-window{font-size:12px;color:#888780;margin-top:2px;}
+.sc-badge{font-size:10px;font-weight:500;padding:3px 9px;border-radius:20px;flex-shrink:0;}
+.badge-scheduled{background:#EAF3DE;color:#3B6D11;}
+.badge-out{background:#FAEEDA;color:#854F0B;}
+.badge-delivered{background:#E1F5EE;color:#085041;}
+.badge-failed{background:#f1efe8;color:#5F5E5A;}
+/* card body */
+.sc-body{padding:0 14px 12px;}
+.sc-addr{font-size:14px;color:#2C2C2A;font-weight:500;margin-bottom:7px;}
+.sc-detail{font-size:12px;color:#888780;line-height:1.7;}
+.sc-detail strong{color:#444441;font-weight:500;}
+.sc-notes{background:#f5f4f0;border-radius:8px;padding:8px 10px;font-size:12px;color:#444441;line-height:1.5;margin-top:8px;display:flex;gap:7px;}
+.sc-notes-icon{font-size:14px;flex-shrink:0;}
+/* card actions */
+.sc-actions{padding:8px 12px 12px;display:flex;gap:8px;}
+.sca-btn{flex:1;padding:13px 8px;border-radius:10px;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;}
+.sca-btn:active{transform:scale(0.97);}
+.sca-nav{background:#E6F1FB;color:#0C447C;}
+.sca-delivered{background:#3B6D11;color:#C0DD97;}
+.sca-delivered:disabled{background:#B4B2A9;cursor:not-allowed;}
+.sca-issue{background:#f5f4f0;color:#888780;border:0.5px solid #d3d1c7;flex:0;padding:13px 14px;}
+/* issue form (inline) */
+.issue-form{padding:10px 12px 12px;border-top:0.5px solid #f1efe8;background:#fff8f8;}
+.issue-form-title{font-size:12px;font-weight:500;color:#A32D2D;margin-bottom:8px;}
+.issue-select{width:100%;padding:10px 12px;border-radius:8px;border:0.5px solid #F09595;font-size:13px;font-family:inherit;background:#fff;outline:none;margin-bottom:8px;cursor:pointer;}
+.issue-notes{width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid #F09595;font-size:13px;font-family:inherit;background:#fff;outline:none;height:60px;resize:none;margin-bottom:8px;}
+.issue-submit-btn{width:100%;padding:12px;border-radius:8px;background:#A32D2D;color:#fff;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;}
+.issue-cancel-btn{width:100%;padding:8px;border-radius:8px;background:transparent;color:#888780;border:none;font-size:12px;cursor:pointer;font-family:inherit;margin-top:4px;}
+
+/* ── DONE STATE ─────────────────────────── */
+.done-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;gap:14px;}
+.done-check{width:72px;height:72px;border-radius:50%;background:#EAF3DE;display:flex;align-items:center;justify-content:center;margin-bottom:4px;}
+.done-title{font-size:22px;font-weight:500;color:#2C2C2A;}
+.done-sub{font-size:14px;color:#888780;line-height:1.6;max-width:260px;}
+.done-stats{background:#fff;border-radius:14px;border:0.5px solid #d3d1c7;padding:16px 20px;width:100%;display:flex;justify-content:space-around;margin-top:4px;}
+.done-stat-val{font-size:24px;font-weight:500;color:#2C2C2A;}
+.done-stat-lbl{font-size:11px;color:#888780;margin-top:2px;}
+</style>
+</head>
+<body>
+<!-- Install banner (shows on first visit in browser, before adding to home screen) -->
+<div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;background:#1c2b1a;padding:14px 16px;z-index:200;border-top:1px solid #27500a;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:40px;height:40px;border-radius:10px;background:#243322;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">&#127807;</div>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:500;color:#C0DD97;">Add TreeLot to your home screen</div>
+      <div style="font-size:11px;color:#639922;margin-top:1px;">Works offline · Opens like an app</div>
+    </div>
+    <button id="install-btn" style="padding:8px 14px;border-radius:8px;background:#639922;color:#C0DD97;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;">Install</button>
+    <button onclick="dismissInstall()" style="background:transparent;border:none;color:#5DCAA5;font-size:18px;cursor:pointer;padding:4px;line-height:1;">&#215;</button>
+  </div>
+  <!-- iOS-specific instructions (shown only on Safari/iOS where the prompt can't be automatic) -->
+  <div id="ios-instructions" style="display:none;margin-top:10px;padding:10px 12px;background:#243322;border-radius:8px;">
+    <div style="font-size:12px;color:#9FE1CB;line-height:1.6;">
+      Tap <strong style="color:#C0DD97;">Share &#9650;</strong> at the bottom of Safari, then tap <strong style="color:#C0DD97;">"Add to Home Screen"</strong>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- ── LOGIN SCREEN ───────────────────────── -->
+  <div class="screen active" id="screen-login">
+    <div class="login-wrap">
+      <div class="login-logo">
+        <div class="login-logo-mark">TreeLot</div>
+        <div class="login-logo-sub">Driver app</div>
+      </div>
+      <div class="login-card">
+        <div class="login-title">Who's driving today?</div>
+        <div class="login-sub">Select your name, then enter your 4-digit PIN to start your route.</div>
+
+        <div class="driver-select-list" id="driver-select-list"></div>
+
+        <div class="pin-section" id="pin-section" style="display:none;">
+          <div class="pin-label">Enter your PIN</div>
+          <div class="pin-dots" id="pin-dots">
+            <div class="pin-dot" id="pd0"></div>
+            <div class="pin-dot" id="pd1"></div>
+            <div class="pin-dot" id="pd2"></div>
+            <div class="pin-dot" id="pd3"></div>
+          </div>
+          <div class="numpad-grid">
+            <button class="nk" onclick="pinKey('1')">1</button>
+            <button class="nk" onclick="pinKey('2')">2</button>
+            <button class="nk" onclick="pinKey('3')">3</button>
+            <button class="nk" onclick="pinKey('4')">4</button>
+            <button class="nk" onclick="pinKey('5')">5</button>
+            <button class="nk" onclick="pinKey('6')">6</button>
+            <button class="nk" onclick="pinKey('7')">7</button>
+            <button class="nk" onclick="pinKey('8')">8</button>
+            <button class="nk" onclick="pinKey('9')">9</button>
+            <button class="nk empty-key"></button>
+            <button class="nk" onclick="pinKey('0')">0</button>
+            <button class="nk del-key" onclick="pinKey('del')">&#9003;</button>
+          </div>
+          <div class="login-error" id="login-error"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROUTE SCREEN ───────────────────────── -->
+  <div class="screen" id="screen-route">
+    <div class="app-bar">
+      <div class="app-bar-left">
+        <div class="app-bar-name" id="bar-name">Marcus D.</div>
+        <div class="app-bar-date">Sat, Dec 14 · Main St Lot</div>
+      </div>
+      <div class="app-bar-right">
+        <button class="logout-btn" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="progress-strip">
+      <div class="prog-seg">
+        <div class="prog-val" id="prog-done">0</div>
+        <div class="prog-lbl">Delivered</div>
+      </div>
+      <div class="prog-seg">
+        <div class="prog-val alert" id="prog-remain">0</div>
+        <div class="prog-lbl">Remaining</div>
+      </div>
+      <div class="prog-seg">
+        <div class="prog-val" id="prog-total">0</div>
+        <div class="prog-lbl">Total stops</div>
+      </div>
+    </div>
+
+    <div class="start-bar" id="start-bar">
+      <button class="start-route-btn" onclick="startRoute()">Start route — mark all as out for delivery</button>
+    </div>
+
+    <div class="route-list" id="route-list"></div>
+  </div>
+
+  <!-- ── ALL DONE SCREEN ───────────────────── -->
+  <div class="screen" id="screen-done">
+    <div class="app-bar">
+      <div class="app-bar-left">
+        <div class="app-bar-name" id="done-bar-name">Marcus D.</div>
+        <div class="app-bar-date">Sat, Dec 14</div>
+      </div>
+      <div class="app-bar-right">
+        <button class="logout-btn" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+    <div class="done-screen">
+      <div class="done-check">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none"><path d="M7 18l6 6L27 10" stroke="#27500A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="done-title">Route complete!</div>
+      <div class="done-sub" id="done-sub">All stops delivered. Great work today.</div>
+      <div class="done-stats">
+        <div style="text-align:center;">
+          <div class="done-stat-val" id="done-delivered">5</div>
+          <div class="done-stat-lbl">Delivered</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="done-stat-val" id="done-failed" style="color:#A32D2D;">0</div>
+          <div class="done-stat-lbl">Issues</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="done-stat-val" id="done-pct">100%</div>
+          <div class="done-stat-lbl">Success rate</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+// In production: fetch from GET /api/driver/route?driverId=X after PIN auth.
+// All stop data is scoped to this driver only — server never returns other drivers' data.
+
+var DRIVERS = [
+  {key:'marcus', name:'Marcus D.', initials:'MD', color:'#639922', bg:'#C0DD97', pin:'1234',
+   stops:[
+    {num:1,name:'Sarah Henderson',addr:'2841 Mockingbird Ln, Dallas, TX 75205',window:'Morning · 8am–12pm',tree:'6–8ft Fraser Fir',stand:true,lights:true,install:false,notes:'Leave by side gate. Friendly dog.',phone:'(214) 555-0182',status:'delivered'},
+    {num:2,name:'James Okafor',addr:'519 Elm Creek Dr, Plano, TX 75093',window:'Morning · 8am–12pm',tree:'9–10ft Noble Fir',stand:true,lights:false,install:false,notes:'',phone:'(972) 555-0819',status:'delivered'},
+    {num:3,name:'Linda Pham',addr:'1104 Rosewood Ave, Richardson, TX 75080',window:'Afternoon · 12pm–5pm',tree:'6–8ft Fraser Fir',stand:false,lights:true,install:false,notes:'Dog in backyard — call ahead before arrival.',phone:'(214) 555-0293',status:'out'},
+    {num:4,name:'Mike Hendricks',addr:'3302 Pecan Grove, Allen, TX 75002',window:'Afternoon · 12pm–5pm',tree:'9–10ft Noble Fir',stand:true,lights:false,install:false,notes:'',phone:'(972) 555-0341',status:'scheduled'},
+    {num:5,name:'Priya Menon',addr:'223 Creekside Ct, Garland, TX 75040',window:'Evening · 5pm–8pm',tree:'3–5ft Fraser Fir',stand:false,lights:false,install:false,notes:'',phone:'(469) 555-0441',status:'scheduled'},
+   ]
+  },
+  {key:'janelle', name:'Janelle R.', initials:'JR', color:'#185FA5', bg:'#B5D4F4', pin:'5678',
+   stops:[
+    {num:1,name:'Tom Brecht',addr:'408 Westgate Blvd, Irving, TX 75038',window:'Afternoon · 12pm–5pm',tree:'9–10ft Douglas Fir',stand:true,lights:true,install:true,notes:'Customer wants full setup including lights. Call when 15 min away.',phone:'(214) 555-0628',status:'out'},
+    {num:2,name:'Rafael Cruz',addr:'871 Sunflower Way, Mesquite, TX 75149',window:'Evening · 5pm–8pm',tree:'6–8ft Fraser Fir',stand:true,lights:false,install:false,notes:'Gate code: 4821',phone:'(972) 555-0173',status:'scheduled'},
+    {num:3,name:'Paula Henderson',addr:'810 Clover Hill Rd, Plano, TX 75024',window:'Evening · 5pm–8pm',tree:'6–8ft Fraser Fir',stand:true,lights:true,install:false,notes:'',phone:'(469) 555-0917',status:'scheduled'},
+   ]
+  },
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+var currentDriver = null;
+var pinBuffer = '';
+var selectedDriverKey = null;
+var openIssueNum = null;
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function renderDriverList() {
+  var list = document.getElementById('driver-select-list');
+  list.innerHTML = DRIVERS.map(d => {
+    var remaining = d.stops.filter(s => s.status !== 'delivered' && s.status !== 'failed').length;
+    return '<div class="driver-opt" id="dopt-'+d.key+'" onclick="selectDriver(\''+d.key+'\')"><div class="driver-av" style="background:'+d.bg+';color:'+d.color+';">'+d.initials+'</div><div><div class="driver-opt-name">'+d.name+'</div><div class="driver-opt-stops">'+remaining+' stops remaining today</div></div></div>';
+  }).join('');
+}
+
+function selectDriver(key) {
+  selectedDriverKey = key;
+  pinBuffer = '';
+  document.querySelectorAll('.driver-opt').forEach(el => el.classList.remove('selected'));
+  document.getElementById('dopt-'+key).classList.add('selected');
+  document.getElementById('pin-section').style.display = 'block';
+  updatePinDots();
+  document.getElementById('login-error').textContent = '';
+}
+
+function pinKey(k) {
+  if (!selectedDriverKey) return;
+  if (k === 'del') {
+    pinBuffer = pinBuffer.slice(0, -1);
+  } else {
+    if (pinBuffer.length >= 4) return;
+    pinBuffer += k;
+  }
+  updatePinDots();
+  if (pinBuffer.length === 4) {
+    checkPin();
+  }
+}
+
+function updatePinDots() {
+  for (var i = 0; i < 4; i++) {
+    var dot = document.getElementById('pd' + i);
+    dot.className = 'pin-dot' + (i < pinBuffer.length ? ' filled' : '');
+  }
+}
+
+function checkPin() {
+  var driver = DRIVERS.find(d => d.key === selectedDriverKey);
+  if (!driver) return;
+  if (pinBuffer === driver.pin) {
+    loginAs(driver);
+  } else {
+    // wrong pin
+    for (var i = 0; i < 4; i++) {
+      document.getElementById('pd'+i).className = 'pin-dot error';
+    }
+    document.getElementById('pin-dots').classList.add('pin-shake');
+    document.getElementById('login-error').textContent = 'Incorrect PIN. Try again.';
+    setTimeout(function() {
+      pinBuffer = '';
+      updatePinDots();
+      document.getElementById('pin-dots').classList.remove('pin-shake');
+      document.getElementById('login-error').textContent = '';
+    }, 900);
+  }
+}
+
+function loginAs(driver) {
+  currentDriver = driver;
+  document.getElementById('bar-name').textContent = driver.name;
+  document.getElementById('done-bar-name').textContent = driver.name;
+  showScreen('route');
+  renderRoute();
+}
+
+function logout() {
+  currentDriver = null;
+  selectedDriverKey = null;
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pin-section').style.display = 'none';
+  document.querySelectorAll('.driver-opt').forEach(el => el.classList.remove('selected'));
+  document.getElementById('login-error').textContent = '';
+  showScreen('login');
+}
+
+// ── ROUTE RENDERING ───────────────────────────────────────────────────────────
+function renderRoute() {
+  if (!currentDriver) return;
+  var stops = currentDriver.stops;
+  var done = stops.filter(s => s.status === 'delivered').length;
+  var failed = stops.filter(s => s.status === 'failed').length;
+  var remain = stops.filter(s => s.status !== 'delivered' && s.status !== 'failed').length;
+  var total = stops.length;
+
+  setText('prog-done', done);
+  setText('prog-remain', remain);
+  setText('prog-total', total);
+
+  // Show start bar if any stop is still scheduled (not yet marked out)
+  var anyScheduled = stops.some(s => s.status === 'scheduled');
+  var startBar = document.getElementById('start-bar');
+  startBar.className = 'start-bar' + (anyScheduled ? ' show' : '');
+
+  // Find the first non-delivered stop (the "current" stop)
+  var currentIdx = stops.findIndex(s => s.status !== 'delivered' && s.status !== 'failed');
+
+  var list = document.getElementById('route-list');
+  list.innerHTML = stops.map(function(s, idx) {
+    var isCurrent = idx === currentIdx;
+    var isDone = s.status === 'delivered';
+    var isFailed = s.status === 'failed';
+    var isOut = s.status === 'out';
+
+    var badgeClass = {scheduled:'badge-scheduled', out:'badge-out', delivered:'badge-delivered', failed:'badge-failed'}[s.status] || 'badge-scheduled';
+    var badgeLabel = {scheduled:'Scheduled', out:'En route', delivered:'Delivered', failed:'Issue reported'}[s.status] || s.status;
+
+    var cardClass = 'stop-card' + (isCurrent?' current':'') + (isDone?' done':'') + (isFailed?' failed-card':'');
+
+    var detailsHtml = '<div class="sc-detail">';
+    detailsHtml += '<strong>Tree:</strong> '+s.tree+'<br>';
+    if (s.stand) detailsHtml += '<strong>Stand:</strong> Yes — set up on delivery<br>';
+    if (s.lights) detailsHtml += '<strong>Lights:</strong> Yes — include in box<br>';
+    if (s.install) detailsHtml += '<strong style="color:#0C447C;">Install:</strong> <span style="color:#0C447C;">Full setup requested</span><br>';
+    detailsHtml += '</div>';
+
+    var notesHtml = s.notes ? '<div class="sc-notes"><span class="sc-notes-icon">&#128221;</span>'+s.notes+'</div>' : '';
+
+    var actionsHtml = '<div class="sc-actions">';
+    actionsHtml += '<button class="sca-btn sca-nav" onclick="navigate(\''+s.addr.replace(/'/g,"\\'")+'\')">&#128205; Navigate</button>';
+    actionsHtml += '<button class="sca-btn sca-delivered" onclick="markDelivered('+s.num+')" '+(isDone?'disabled':'')+'>'+( isDone?'&#10003; Done':'Delivered')+'</button>';
+    if (!isDone && !isFailed) {
+      actionsHtml += '<button class="sca-btn sca-issue" onclick="toggleIssue('+s.num+')" title="Report issue">&#9888;</button>';
+    }
+    actionsHtml += '</div>';
+
+    var issueHtml = '';
+    if (openIssueNum === s.num) {
+      issueHtml = '<div class="issue-form"><div class="issue-form-title">Report a delivery issue</div>'
+        +'<select class="issue-select" id="issue-reason-'+s.num+'">'
+        +'<option>Not home / no answer</option>'
+        +'<option>Wrong address</option>'
+        +'<option>Customer cancelled</option>'
+        +'<option>Access issue (gate / dog)</option>'
+        +'<option>Tree damaged</option>'
+        +'<option>Other</option>'
+        +'</select>'
+        +'<textarea class="issue-notes" id="issue-notes-'+s.num+'" placeholder="Add details..."></textarea>'
+        +'<button class="issue-submit-btn" onclick="submitIssue('+s.num+')">Submit issue</button>'
+        +'<button class="issue-cancel-btn" onclick="cancelIssue()">Cancel</button>'
+        +'</div>';
+    }
+
+    return '<div class="'+cardClass+'" id="stop-'+s.num+'">'
+      +'<div class="sc-hdr">'
+        +'<div class="sc-num" style="background:'+currentDriver.color+';">'+s.num+'</div>'
+        +'<div class="sc-meta"><div class="sc-name">'+s.name+'</div><div class="sc-window">'+s.window+'</div></div>'
+        +'<span class="sc-badge '+badgeClass+'">'+badgeLabel+'</span>'
+      +'</div>'
+      +'<div class="sc-body">'
+        +'<div class="sc-addr">'+s.addr+'</div>'
+        +detailsHtml
+        +notesHtml
+      +'</div>'
+      +actionsHtml
+      +issueHtml
+    +'</div>';
+  }).join('');
+
+  // Check if all stops are done
+  var allDone = stops.every(s => s.status === 'delivered' || s.status === 'failed');
+  if (allDone && stops.length > 0) {
+    var delivered = stops.filter(s => s.status === 'delivered').length;
+    var failedCount = stops.filter(s => s.status === 'failed').length;
+    setText('done-delivered', delivered);
+    setText('done-failed', failedCount);
+    setText('done-pct', Math.round(delivered / stops.length * 100) + '%');
+    var sub = failedCount > 0
+      ? delivered + ' delivered, ' + failedCount + ' issue' + (failedCount > 1 ? 's' : '') + ' reported.'
+      : 'All stops delivered successfully. Great work!';
+    setText('done-sub', sub);
+    setTimeout(function() { showScreen('done'); }, 600);
+  }
+}
+
+// ── STOP ACTIONS ──────────────────────────────────────────────────────────────
+function markDelivered(num) {
+  var stop = currentDriver.stops.find(s => s.num === num);
+  if (!stop || stop.status === 'delivered') return;
+  stop.status = 'delivered';
+  openIssueNum = null;
+  // Haptic feedback on supported devices
+  if (navigator.vibrate) navigator.vibrate(50);
+  renderRoute();
+  // Scroll to next undelivered stop
+  setTimeout(function() {
+    var next = currentDriver.stops.find(s => s.status !== 'delivered' && s.status !== 'failed');
+    if (next) {
+      var el = document.getElementById('stop-' + next.num);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  }, 150);
+}
+
+function startRoute() {
+  currentDriver.stops.forEach(s => {
+    if (s.status === 'scheduled') s.status = 'out';
+  });
+  renderRoute();
+}
+
+function toggleIssue(num) {
+  openIssueNum = openIssueNum === num ? null : num;
+  renderRoute();
+  if (openIssueNum) {
+    setTimeout(function() {
+      var el = document.getElementById('stop-' + num);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }, 100);
+  }
+}
+
+function cancelIssue() {
+  openIssueNum = null;
+  renderRoute();
+}
+
+function submitIssue(num) {
+  var stop = currentDriver.stops.find(s => s.num === num);
+  if (!stop) return;
+  var reason = document.getElementById('issue-reason-' + num);
+  var notes = document.getElementById('issue-notes-' + num);
+  // In production: POST /api/deliveries/{num}/issue { reason, notes }
+  stop.status = 'failed';
+  stop.issueReason = reason ? reason.value : '';
+  stop.issueNotes = notes ? notes.value : '';
+  openIssueNum = null;
+  renderRoute();
+}
+
+function navigate(addr) {
+  // Detect iOS vs Android and open native maps
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  var encoded = encodeURIComponent(addr);
+  var url = isIOS
+    ? 'maps://maps.apple.com/?daddr=' + encoded
+    : 'https://www.google.com/maps/dir/?api=1&destination=' + encoded;
+  window.open(url, '_blank');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function setText(id, v) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = v;
+}
+
+// ── PWA INSTALL ───────────────────────────────────────────────────────────────
+var installPromptEvent = null;
+var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+var isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+function showInstallBanner() {
+  if (isInStandaloneMode) return; // already installed
+  if (localStorage.getItem('installDismissed')) return;
+  document.getElementById('install-banner').style.display = 'block';
+  if (isIOS) {
+    // On iOS Safari we can't trigger the prompt programmatically — show manual instructions
+    document.getElementById('install-btn').style.display = 'none';
+    document.getElementById('ios-instructions').style.display = 'block';
+  }
+}
+
+function dismissInstall() {
+  document.getElementById('install-banner').style.display = 'none';
+  localStorage.setItem('installDismissed', '1');
+}
+
+// Capture the beforeinstallprompt event (Chrome/Android)
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  installPromptEvent = e;
+  showInstallBanner();
+});
+
+document.getElementById('install-btn').addEventListener('click', function() {
+  if (!installPromptEvent) return;
+  installPromptEvent.prompt();
+  installPromptEvent.userChoice.then(function(result) {
+    if (result.outcome === 'accepted') {
+      document.getElementById('install-banner').style.display = 'none';
+    }
+    installPromptEvent = null;
+  });
+});
+
+// Show iOS instructions after a short delay on first visit
+if (isIOS && !isInStandaloneMode && !localStorage.getItem('installDismissed')) {
+  setTimeout(showInstallBanner, 2000);
+}
+
+// ── SERVICE WORKER (offline support) ─────────────────────────────────────────
+// In production: save this as /driver-sw.js and register it here.
+// The service worker caches the app shell so drivers can use it with no signal.
+// Below is the registration call — the actual SW file lives server-side.
+
+var SW_SCRIPT = `
+const CACHE = 'treelot-driver-v1';
+const SHELL = ['/driver', '/driver/'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request).then(res => {
+      var clone = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
+      return res;
+    }).catch(() => caches.match(e.request))
+  );
+});
+`;
+
+// Register inline service worker via Blob (works for standalone HTML file demos)
+// In production: replace with navigator.serviceWorker.register('/driver-sw.js')
+if ('serviceWorker' in navigator) {
+  try {
+    var blob = new Blob([SW_SCRIPT], {type: 'application/javascript'});
+    var swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).then(function(reg) {
+      console.log('[TreeLot Driver] Service worker registered, scope:', reg.scope);
+    }).catch(function(err) {
+      console.log('[TreeLot Driver] SW registration skipped (expected in file:// mode):', err.message);
+    });
+  } catch(e) {
+    // Blob SW not supported in all contexts — production uses a real SW file
+  }
+}
+
+// ── ONLINE / OFFLINE INDICATOR ────────────────────────────────────────────────
+function updateOnlineStatus() {
+  var bar = document.getElementById('app-bar') || document.querySelector('.app-bar');
+  var offline = !navigator.onLine;
+  // Add a subtle offline badge to the app bar when no connection
+  var existing = document.getElementById('offline-badge');
+  if (offline && !existing && bar) {
+    var badge = document.createElement('div');
+    badge.id = 'offline-badge';
+    badge.style.cssText = 'font-size:10px;color:#EF9F27;background:#412402;padding:2px 8px;border-radius:4px;font-weight:500;';
+    badge.textContent = 'Offline — data saved';
+    bar.appendChild(badge);
+  } else if (!offline && existing) {
+    existing.remove();
+  }
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderDriverList();
+</script>
+</body>
+</html>

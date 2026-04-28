@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Plan {
+  starter
+  pro
+  enterprise
+}
+
+enum Role {
+  owner
+  manager
+  staff
+  driver
+}
+
+enum PaymentMethod {
+  cash
+  card
+  venmo
+  zelle
+}
+
+enum TimeWindow {
+  morning
+  afternoon
+  evening
+  anytime
+}
+
+enum DeliveryStatus {
+  unassigned
+  scheduled
+  out_for_delivery
+  delivered
+  failed
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model Organization {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  plan             Plan     @default(starter)
+  stripeCustomerId String?
+  taxRateBps       Int      @default(825)
+  createdAt        DateTime @default(now()) @db.Timestamptz
+
+  locations Location[]
+  users     User[]
+  customers Customer[]
+
+  @@map("organizations")
+}
+
+model Location {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId     String   @db.Uuid
+  name      String
+  address   String
+  timezone  String   @default("America/Chicago")
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  users     User[]
+  purchases Purchase[]
+  deliveries Delivery[]
+
+  @@map("locations")
+}
+
+model User {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkId    String   @unique
+  orgId      String   @db.Uuid
+  locationId String?  @db.Uuid
+  role       Role
+  name       String
+  email      String
+  phone      String?
+  pin        String?
+  createdAt  DateTime @default(now()) @db.Timestamptz
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  location Location?    @relation(fields: [locationId], references: [id])
+  purchases  Purchase[]
+  deliveries Delivery[]
+
+  @@map("users")
+}
+
+model Customer {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId        String   @db.Uuid
+  firstName    String
+  lastName     String
+  phone        String
+  email        String?
+  addressLine1 String?
+  city         String?
+  state        String?
+  zip          String?
+  notes        String?
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  org        Organization @relation(fields: [orgId], references: [id])
+  purchases  Purchase[]
+  deliveries Delivery[]
+
+  @@index([phone])
+  @@index([email])
+  @@map("customers")
+}
+
+model Purchase {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId      String        @db.Uuid
+  locationId      String        @db.Uuid
+  createdById     String        @db.Uuid
+  seasonYear      Int
+  treeType        String
+  treeTypeName    String?
+  treeSizeRange   String
+  subtotalCents   Int
+  taxCents        Int
+  totalCents      Int
+  paymentMethod   PaymentMethod
+  standIncluded   Boolean       @default(false)
+  lightsIncluded  Boolean       @default(false)
+  deliveryRequested Boolean     @default(false)
+  notes           String?
+  purchasedAt     DateTime      @db.Timestamptz
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  location   Location @relation(fields: [locationId], references: [id])
+  createdBy  User     @relation(fields: [createdById], references: [id])
+  delivery   Delivery?
+
+  @@map("purchases")
+}
+
+model Delivery {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseId          String         @unique @db.Uuid
+  customerId          String         @db.Uuid
+  locationId          String         @db.Uuid
+  driverId            String?        @db.Uuid
+  addressLine1        String
+  city                String
+  state               String
+  zip                 String
+  lat                 Decimal?       @db.Decimal(9, 6)
+  lng                 Decimal?       @db.Decimal(9, 6)
+  deliveryDate        DateTime       @db.Date
+  timeWindow          TimeWindow
+  standIncluded       Boolean
+  lightsIncluded      Boolean
+  installRequested    Boolean        @default(false)
+  routeOrder          Int?
+  status              DeliveryStatus @default(unassigned)
+  specialInstructions String?
+  driverNotes         String?
+  issueReason         String?
+  deliveredAt         DateTime?      @db.Timestamptz
+  createdAt           DateTime       @default(now()) @db.Timestamptz
+  updatedAt           DateTime       @updatedAt @db.Timestamptz
+
+  purchase Purchase  @relation(fields: [purchaseId], references: [id])
+  customer Customer  @relation(fields: [customerId], references: [id])
+  location Location  @relation(fields: [locationId], references: [id])
+  driver   User?     @relation(fields: [driverId], references: [id])
+
+  @@map("deliveries")
+}

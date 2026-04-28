@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TreeLot — Desktop App v7</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;overflow:hidden;}
+.app{display:flex;flex-direction:column;height:100vh;}
+.topbar{background:#1c2b1a;padding:0 20px;height:46px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.logo{font-size:15px;font-weight:500;color:#c0dd97;}
+.loc{font-size:12px;color:#639922;background:#27500a;padding:3px 12px;border-radius:20px;}
+.tright{display:flex;gap:14px;align-items:center;}
+.tuser{font-size:12px;color:#9FE1CB;}
+.ttime{font-size:12px;color:#5F5E5A;}
+.body{display:flex;height:calc(100vh - 46px);}
+.sidebar{width:160px;background:#243322;display:flex;flex-direction:column;padding:10px 8px;gap:2px;flex-shrink:0;}
+.sb-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;}
+.sb-btn.active{background:#3B6D11;}
+.si{width:15px;height:15px;flex-shrink:0;}
+.sl{font-size:12px;color:#5DCAA5;font-family:inherit;}
+.sb-btn.active .sl{color:#C0DD97;}
+.sdiv{height:0.5px;background:#3B6D11;margin:5px 4px;}
+.main{flex:1;display:flex;overflow:hidden;}
+.screen{display:none;flex:1;}
+.screen.active{display:flex;}
+
+/* POS 3 cols */
+.pos-left{width:250px;background:#fff;border-right:0.5px solid #d3d1c7;display:flex;flex-direction:column;flex-shrink:0;}
+.pos-mid{flex:1;background:#f5f4f0;overflow-y:auto;display:flex;flex-direction:column;}
+.pos-right{width:285px;background:#fff;border-left:0.5px solid #d3d1c7;display:flex;flex-direction:column;flex-shrink:0;}
+
+/* left */
+.sw{padding:10px;}
+.si-field{width:100%;padding:8px 12px;border-radius:8px;border:1.5px solid #639922;background:#fff;font-size:13px;font-family:inherit;color:#2C2C2A;outline:none;}
+.si-field::placeholder{color:#B4B2A9;}
+.ncb{margin:6px 10px;padding:8px;border-radius:7px;border:1px dashed #97C459;background:transparent;color:#3B6D11;font-size:12px;font-family:inherit;cursor:pointer;width:calc(100% - 20px);text-align:center;}
+.ncb:hover{background:#EAF3DE;}
+.slbl{font-size:10px;font-weight:500;color:#888780;padding:5px 10px 3px;letter-spacing:0.06em;text-transform:uppercase;}
+.cl{flex:1;overflow-y:auto;}
+.cr{padding:8px 10px;border-bottom:0.5px solid #f1efe8;cursor:pointer;display:flex;align-items:center;gap:8px;}
+.cr.sc{background:#EAF3DE;}
+.cr:hover:not(.sc){background:#f5f4f0;}
+.av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;}
+.ag{background:#C0DD97;color:#27500A;}
+.at{background:#9FE1CB;color:#085041;}
+.aa{background:#FAC775;color:#633806;}
+.ab{background:#B5D4F4;color:#0C447C;}
+.ap{background:#F4C0D1;color:#72243E;}
+.cn{font-size:12px;font-weight:500;color:#2C2C2A;}
+.cs{font-size:10px;color:#888780;margin-top:1px;}
+.rb{font-size:10px;font-weight:500;background:#EAF3DE;color:#3B6D11;padding:2px 6px;border-radius:20px;white-space:nowrap;margin-left:auto;}
+
+/* mid */
+.pi{padding:12px;display:flex;flex-direction:column;gap:9px;}
+.card{background:#fff;border-radius:11px;border:0.5px solid #d3d1c7;padding:11px 13px;}
+
+/* new customer form inside card */
+.nc-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.nc-form .full{grid-column:1/-1;}
+.nf-label{font-size:10px;font-weight:500;color:#888780;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em;}
+.nf-input{width:100%;padding:7px 10px;border-radius:7px;border:0.5px solid #d3d1c7;font-size:12px;font-family:inherit;color:#2C2C2A;background:#f5f4f0;outline:none;}
+.nf-input:focus{border-color:#639922;background:#fff;}
+.nf-input::placeholder{color:#B4B2A9;}
+.save-cust-btn{width:100%;padding:9px;border-radius:8px;background:#3B6D11;color:#C0DD97;font-size:12px;font-weight:500;border:none;cursor:pointer;font-family:inherit;margin-top:4px;}
+.save-cust-btn:hover{background:#27500A;}
+
+/* profile */
+.ph{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+.pav{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0;}
+.pn{font-size:14px;font-weight:500;color:#2C2C2A;}
+.ps{font-size:11px;color:#888780;}
+.hs{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;}
+.hp{background:#f5f4f0;border:0.5px solid #d3d1c7;border-radius:7px;padding:4px 9px;white-space:nowrap;flex-shrink:0;}
+.hy{font-size:9px;color:#888780;font-weight:500;}
+.hi{font-size:10px;color:#444441;margin-top:1px;}
+.hp.cy{background:#EAF3DE;border-color:#97C459;}
+.hp.cy .hy{color:#3B6D11;}
+
+.ct{font-size:12px;font-weight:500;color:#2C2C2A;margin-bottom:7px;}
+.cbstrip{display:flex;gap:5px;flex-wrap:wrap;}
+.cbb{padding:6px 10px;border-radius:6px;border:1.5px solid #97C459;background:#EAF3DE;color:#27500A;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.cbb:hover{background:#C0DD97;}
+.cbb.ac{background:#3B6D11;border-color:#3B6D11;color:#EAF3DE;}
+
+/* tree */
+.tgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.tbtn{padding:10px 8px;border-radius:7px;border:0.5px solid #d3d1c7;background:#fff;font-size:12px;color:#444441;cursor:pointer;text-align:center;font-family:inherit;}
+.tbtn.sel{border:1.5px solid #639922;background:#EAF3DE;color:#27500A;font-weight:500;}
+.other-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-top:7px;}
+.obtn{padding:7px 8px;border-radius:6px;border:0.5px solid #d3d1c7;background:#f5f4f0;font-size:11px;color:#444441;cursor:pointer;text-align:center;font-family:inherit;}
+.obtn.sel{border:1.5px solid #639922;background:#EAF3DE;color:#27500A;font-weight:500;}
+.oti{width:100%;margin-top:6px;padding:7px 10px;border-radius:7px;border:0.5px solid #d3d1c7;font-size:12px;font-family:inherit;color:#2C2C2A;background:#fff;outline:none;}
+.oti::placeholder{color:#B4B2A9;}
+
+/* size — 6 ranges */
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+.sbtn{padding:8px 4px;border-radius:7px;border:0.5px solid #d3d1c7;background:#fff;font-size:11px;font-weight:500;color:#444441;cursor:pointer;text-align:center;font-family:inherit;line-height:1.3;}
+.sbtn.sel{border:1.5px solid #639922;background:#EAF3DE;color:#27500A;}
+
+/* addons */
+.togrow{display:flex;gap:6px;}
+.tog{flex:1;padding:8px;border-radius:7px;border:0.5px solid #d3d1c7;background:#fff;font-size:12px;color:#888780;cursor:pointer;text-align:center;font-family:inherit;}
+.tog.on{border:1.5px solid #639922;background:#EAF3DE;color:#27500A;font-weight:500;}
+
+/* delivery expansion */
+.deliv-fields{background:#f5f4f0;border-radius:8px;padding:10px 11px;margin-top:8px;display:flex;flex-direction:column;gap:7px;}
+.df-row{display:flex;gap:7px;}
+.df-label{font-size:10px;font-weight:500;color:#888780;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em;}
+.df-input{width:100%;padding:7px 10px;border-radius:7px;border:0.5px solid #d3d1c7;font-size:12px;font-family:inherit;color:#2C2C2A;background:#fff;outline:none;}
+.df-input:focus{border-color:#639922;}
+.df-input::placeholder{color:#B4B2A9;}
+.default-addr-btn{font-size:11px;color:#3B6D11;background:#EAF3DE;border:0.5px solid #97C459;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.default-addr-btn:hover{background:#C0DD97;}
+
+.ni{width:100%;padding:7px 10px;border-radius:7px;border:0.5px solid #d3d1c7;font-size:12px;font-family:inherit;color:#2C2C2A;background:#f5f4f0;outline:none;}
+.ni::placeholder{color:#B4B2A9;}
+
+/* right — payment calculator */
+.calc-header{padding:11px 13px 8px;border-bottom:0.5px solid #d3d1c7;flex-shrink:0;}
+.calc-title{font-size:13px;font-weight:500;color:#2C2C2A;margin-bottom:9px;}
+.price-display{background:#1c2b1a;border-radius:9px;padding:10px 13px;margin-bottom:7px;}
+.price-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.price-row-lbl{font-size:11px;color:#5DCAA5;}
+.price-row-val{font-size:13px;color:#9FE1CB;font-weight:500;}
+.price-divider{height:0.5px;background:#3B6D11;margin:6px 0;}
+.pd-lbl{font-size:10px;color:#5DCAA5;margin-bottom:2px;}
+.pd-val{font-size:26px;font-weight:500;color:#C0DD97;text-align:right;letter-spacing:0.02em;}
+.preset-row{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:7px;}
+.preset-btn{padding:6px 4px;border-radius:6px;border:0.5px solid #d3d1c7;background:#f5f4f0;font-size:11px;font-weight:500;color:#444441;cursor:pointer;font-family:inherit;text-align:center;}
+.preset-btn:hover{background:#EAF3DE;border-color:#97C459;color:#27500A;}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:9px;}
+.nk{padding:11px 4px;border-radius:7px;border:0.5px solid #d3d1c7;background:#fff;font-size:14px;font-weight:500;color:#2C2C2A;cursor:pointer;font-family:inherit;text-align:center;}
+.nk:hover{background:#EAF3DE;border-color:#97C459;}
+.nk.del{font-size:12px;color:#888780;}
+.nk.clear{font-size:11px;color:#A32D2D;background:#FCEBEB;border-color:#F09595;}
+.nk.clear:hover{background:#F7C1C1;}
+.pm-row{display:flex;gap:4px;margin-bottom:7px;}
+.pm-btn{flex:1;padding:7px 4px;border-radius:7px;border:0.5px solid #d3d1c7;background:#fff;font-size:11px;color:#888780;cursor:pointer;font-family:inherit;text-align:center;}
+.pm-btn.pm-sel{border:1.5px solid #639922;background:#EAF3DE;color:#27500A;font-weight:500;}
+.cash-section{background:#f5f4f0;border-radius:8px;padding:8px 9px;margin-bottom:7px;}
+.cash-lbl{font-size:10px;color:#888780;margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;}
+/* cash numpad entry */
+.cash-entry-display{background:#fff;border:0.5px solid #d3d1c7;border-radius:7px;padding:6px 10px;margin-bottom:6px;text-align:right;font-size:16px;font-weight:500;color:#2C2C2A;min-height:34px;}
+.cash-presets{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px;}
+.cash-btn{padding:4px 8px;border-radius:5px;border:0.5px solid #d3d1c7;background:#fff;font-size:11px;font-weight:500;color:#444441;cursor:pointer;font-family:inherit;}
+.cash-btn:hover{background:#EAF3DE;border-color:#97C459;color:#27500A;}
+.cash-btn.ca{background:#3B6D11;color:#C0DD97;border-color:#3B6D11;}
+.change-row{display:flex;justify-content:space-between;align-items:center;padding-top:5px;border-top:0.5px solid #d3d1c7;}
+.change-lbl{font-size:11px;color:#888780;}
+.change-val{font-size:15px;font-weight:500;color:#3B6D11;}
+.comp-btn{width:100%;padding:11px;border-radius:8px;background:#3B6D11;color:#C0DD97;font-size:13px;font-weight:500;border:none;cursor:pointer;font-family:inherit;}
+.comp-btn:hover{background:#27500A;}
+.comp-btn:disabled{background:#B4B2A9;color:#fff;cursor:not-allowed;}
+.calc-body{flex:1;overflow-y:auto;padding:9px 12px;display:flex;flex-direction:column;gap:0;}
+
+/* cash numpad — reuses main numpad style but smaller */
+.cash-numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px;}
+.cnk{padding:8px 4px;border-radius:6px;border:0.5px solid #d3d1c7;background:#fff;font-size:13px;font-weight:500;color:#2C2C2A;cursor:pointer;font-family:inherit;text-align:center;}
+.cnk:hover{background:#EAF3DE;}
+.cnk.cdel{font-size:11px;color:#888780;}
+.cnk.cclr{font-size:10px;color:#A32D2D;background:#FCEBEB;border-color:#F09595;}
+
+/* success */
+#success-msg{display:none;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:2rem;text-align:center;}
+
+/* ===== DELIVERY DISPATCHER v7 ===== */
+.deliv-wrap{flex:1;display:flex;flex-direction:column;background:#f5f4f0;}
+.disp-topbar{background:#1c2b1a;padding:0 16px;height:44px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.disp-title{font-size:14px;font-weight:500;color:#C0DD97;}
+.disp-date{font-size:11px;color:#639922;}
+.disp-view-toggle{display:flex;gap:3px;}
+.dvt-btn{padding:4px 10px;border-radius:5px;border:0.5px solid #3B6D11;background:transparent;color:#5DCAA5;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;}
+.dvt-btn.active{background:#3B6D11;color:#C0DD97;}
+/* ops metric strip */
+.ops-strip{background:#243322;padding:7px 16px;display:flex;gap:10px;align-items:center;flex-shrink:0;}
+.ops-metric{display:flex;align-items:center;gap:7px;padding:4px 10px;background:rgba(255,255,255,0.06);border-radius:6px;}
+.ops-val{font-size:16px;font-weight:500;color:#C0DD97;line-height:1;}
+.ops-lbl{font-size:9px;color:#5DCAA5;text-transform:uppercase;letter-spacing:0.05em;}
+.ops-sep{width:0.5px;height:24px;background:#3B6D11;flex-shrink:0;}
+.ops-metric.alert-metric .ops-val{color:#EF9F27;}
+.ops-metric.danger-metric .ops-val{color:#E24B4A;}
+/* 3-col body */
+.disp-body{display:flex;flex:1;overflow:hidden;}
+/* LEFT — delivery queue */
+.disp-left{width:270px;background:#fff;border-right:0.5px solid #d3d1c7;display:flex;flex-direction:column;flex-shrink:0;}
+.disp-left-hdr{padding:9px 12px;border-bottom:0.5px solid #d3d1c7;display:flex;align-items:center;justify-content:space-between;}
+.disp-sect-title{font-size:11px;font-weight:500;color:#2C2C2A;}
+.group-btn{font-size:10px;color:#3B6D11;background:#EAF3DE;border:0.5px solid #97C459;border-radius:5px;padding:3px 8px;cursor:pointer;font-family:inherit;}
+.group-btn:hover{background:#C0DD97;}
+.dq-filter-row{display:flex;gap:4px;padding:7px 10px;border-bottom:0.5px solid #d3d1c7;flex-shrink:0;}
+.dq-filt{flex:1;padding:4px 6px;border-radius:5px;border:0.5px solid #d3d1c7;background:#f5f4f0;font-size:10px;color:#888780;cursor:pointer;text-align:center;font-family:inherit;}
+.dq-filt.fa{background:#1c2b1a;color:#C0DD97;border-color:#1c2b1a;}
+.dq-list{flex:1;overflow-y:auto;}
+/* window group headers */
+.win-group-hdr{padding:5px 12px 3px;background:#f5f4f0;border-bottom:0.5px solid #f1efe8;}
+.win-group-lbl{font-size:9px;font-weight:500;color:#888780;text-transform:uppercase;letter-spacing:0.06em;}
+/* delivery queue card */
+.dq-card{padding:8px 11px;border-bottom:0.5px solid #f1efe8;cursor:pointer;display:flex;align-items:flex-start;gap:8px;position:relative;}
+.dq-card.sel-d{background:#EAF3DE;}
+.dq-card:hover:not(.sel-d){background:#f9f9f7;}
+.dq-stop-num{width:20px;height:20px;border-radius:50%;background:#1c2b1a;color:#C0DD97;font-size:9px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
+.dq-stop-num.unrouted{background:#d3d1c7;color:#888780;}
+.dq-info{flex:1;}
+.dq-name{font-size:12px;font-weight:500;color:#2C2C2A;}
+.dq-addr{font-size:10px;color:#888780;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
+.dq-tree{font-size:10px;color:#444441;margin-top:1px;}
+.dq-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap;}
+.dq-tag{font-size:9px;font-weight:500;padding:1px 5px;border-radius:3px;}
+.tag-stand{background:#EAF3DE;color:#3B6D11;}
+.tag-lights{background:#FAEEDA;color:#854F0B;}
+.tag-install{background:#E6F1FB;color:#0C447C;}
+.dq-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.dot-unassigned{background:#E24B4A;}
+.dot-assigned{background:#EF9F27;}
+.dot-out{background:#5DCAA5;}
+.dot-delivered{background:#639922;}
+.dot-failed{background:#B4B2A9;}
+
+/* CENTER — route board */
+.disp-center{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.route-hdr{padding:9px 14px;background:#fff;border-bottom:0.5px solid #d3d1c7;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.driver-tabs{display:flex;gap:5px;}
+.driver-tab{padding:5px 12px;border-radius:20px;border:0.5px solid #d3d1c7;background:#f5f4f0;font-size:11px;color:#888780;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;}
+.driver-tab.active{background:#1c2b1a;border-color:#1c2b1a;color:#C0DD97;}
+.driver-color{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.route-actions{display:flex;gap:5px;}
+.route-action-btn{padding:5px 10px;border-radius:6px;border:0.5px solid #d3d1c7;background:#fff;font-size:10px;font-weight:500;color:#2C2C2A;cursor:pointer;font-family:inherit;}
+.route-action-btn:hover{background:#EAF3DE;border-color:#97C459;color:#3B6D11;}
+.route-action-btn.primary{background:#3B6D11;border-color:#3B6D11;color:#C0DD97;}
+.route-action-btn.primary:hover{background:#27500A;}
+/* route stop cards — draggable */
+.route-board{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+.route-stop{background:#fff;border-radius:9px;border:0.5px solid #d3d1c7;padding:9px 12px;display:flex;align-items:center;gap:9px;cursor:grab;user-select:none;}
+.route-stop:active{cursor:grabbing;opacity:0.85;}
+.route-stop.drag-over{border:1.5px dashed #639922;background:#f5fff5;}
+.route-stop.delivered-stop{opacity:0.5;}
+.route-stop.out-stop{border-left:3px solid #5DCAA5;border-radius:0 9px 9px 0;}
+.rs-num{width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;}
+.rs-drag{color:#B4B2A9;font-size:14px;flex-shrink:0;cursor:grab;}
+.rs-info{flex:1;}
+.rs-name{font-size:12px;font-weight:500;color:#2C2C2A;}
+.rs-addr{font-size:10px;color:#888780;margin-top:1px;}
+.rs-detail{font-size:10px;color:#444441;margin-top:2px;}
+.rs-win{font-size:9px;font-weight:500;padding:1px 6px;border-radius:3px;margin-right:3px;}
+.win-morning{background:#E6F1FB;color:#0C447C;}
+.win-afternoon{background:#EAF3DE;color:#3B6D11;}
+.win-evening{background:#FAEEDA;color:#854F0B;}
+.rs-actions{display:flex;gap:4px;}
+.rs-act{padding:4px 8px;border-radius:5px;border:0.5px solid #d3d1c7;background:#f5f4f0;font-size:10px;color:#444441;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.rs-act:hover{background:#EAF3DE;border-color:#97C459;color:#3B6D11;}
+.rs-act.danger{color:#A32D2D;}
+.rs-act.danger:hover{background:#FCEBEB;border-color:#F09595;}
+/* empty route state */
+.route-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#888780;}
+.route-empty-title{font-size:13px;font-weight:500;color:#444441;}
+.route-empty-sub{font-size:11px;color:#888780;text-align:center;max-width:200px;line-height:1.5;}
+
+/* RIGHT — detail panel */
+.det-panel{width:270px;background:#fff;border-left:0.5px solid #d3d1c7;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+.det-hdr{padding:10px 13px;border-bottom:0.5px solid #d3d1c7;flex-shrink:0;}
+.det-title{font-size:13px;font-weight:500;color:#2C2C2A;margin-bottom:2px;}
+.det-sub{font-size:10px;color:#888780;}
+.det-scroll{flex:1;overflow-y:auto;padding:10px 13px;}
+.det-section{margin-bottom:12px;}
+.det-sect-lbl{font-size:9px;font-weight:500;color:#888780;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+.det-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid #f1efe8;font-size:11px;}
+.det-row:last-child{border-bottom:none;}
+.dlbl{color:#888780;}
+.dval{color:#2C2C2A;font-weight:500;text-align:right;max-width:150px;}
+/* assign driver selector */
+.driver-select{width:100%;padding:7px 9px;border-radius:7px;border:0.5px solid #d3d1c7;font-size:11px;font-family:inherit;color:#2C2C2A;background:#f5f4f0;outline:none;cursor:pointer;margin-bottom:8px;}
+.driver-select:focus{border-color:#639922;}
+/* status action buttons */
+.det-actions{padding:10px 13px;border-top:0.5px solid #d3d1c7;display:flex;flex-direction:column;gap:5px;flex-shrink:0;}
+.det-act{padding:9px 12px;border-radius:7px;border:0.5px solid #d3d1c7;background:#f5f4f0;font-size:12px;font-weight:500;font-family:inherit;color:#2C2C2A;cursor:pointer;text-align:center;width:100%;}
+.det-act.primary{background:#3B6D11;border-color:#3B6D11;color:#C0DD97;}
+.det-act.primary:hover{background:#27500A;}
+.det-act.warn-act{background:#FAEEDA;border-color:#EF9F27;color:#854F0B;}
+.det-act:hover:not(.primary):not(.warn-act){background:#EAF3DE;border-color:#97C459;color:#27500A;}
+.det-act.danger-act{color:#A32D2D;}
+.det-act.danger-act:hover{background:#FCEBEB;border-color:#F09595;}
+/* notes box */
+.det-notes-box{background:#f5f4f0;border-radius:7px;padding:7px 9px;font-size:11px;color:#444441;line-height:1.5;margin-top:6px;}
+
+/* DRIVER MODE OVERLAY — full-screen mobile-style panel */
+.driver-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:#f5f4f0;z-index:100;flex-direction:column;overflow:hidden;}
+.driver-overlay.show{display:flex;}
+.driver-topbar{background:#1c2b1a;padding:0 14px;height:48px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.driver-title{font-size:14px;font-weight:500;color:#C0DD97;}
+.driver-close{font-size:11px;color:#5DCAA5;background:transparent;border:0.5px solid #3B6D11;border-radius:5px;padding:4px 9px;cursor:pointer;font-family:inherit;}
+.driver-progress{background:#243322;padding:8px 14px;display:flex;gap:10px;flex-shrink:0;}
+.dp-metric{text-align:center;}
+.dp-val{font-size:16px;font-weight:500;color:#C0DD97;}
+.dp-lbl{font-size:9px;color:#5DCAA5;text-transform:uppercase;letter-spacing:0.04em;}
+.driver-list{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;}
+/* driver stop card — large touch targets */
+.driver-stop{background:#fff;border-radius:12px;border:0.5px solid #d3d1c7;overflow:hidden;}
+.driver-stop.current-stop{border:1.5px solid #639922;}
+.driver-stop.done-stop{opacity:0.6;}
+.ds-header{padding:10px 14px;display:flex;align-items:center;gap:10px;}
+.ds-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#fff;flex-shrink:0;}
+.ds-cust{flex:1;}
+.ds-name{font-size:14px;font-weight:500;color:#2C2C2A;}
+.ds-win{font-size:11px;color:#888780;margin-top:1px;}
+.ds-status-badge{font-size:10px;font-weight:500;padding:3px 9px;border-radius:20px;}
+.ds-body{padding:0 14px 10px;}
+.ds-addr{font-size:12px;color:#444441;margin-bottom:5px;}
+.ds-detail-row{font-size:11px;color:#888780;margin-bottom:2px;}
+.ds-detail-row strong{color:#444441;font-weight:500;}
+.ds-notes{background:#f5f4f0;border-radius:6px;padding:6px 9px;font-size:11px;color:#444441;margin-top:6px;line-height:1.5;}
+.ds-actions{display:flex;gap:6px;padding:8px 14px;border-top:0.5px solid #f1efe8;}
+.dsa-btn{flex:1;padding:11px 8px;border-radius:8px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center;}
+.dsa-nav{background:#E6F1FB;color:#0C447C;}
+.dsa-nav:hover{background:#B5D4F4;}
+.dsa-delivered{background:#3B6D11;color:#C0DD97;}
+.dsa-delivered:hover{background:#27500A;}
+.dsa-delivered:disabled{background:#B4B2A9;cursor:not-allowed;}
+.dsa-issue{background:#FCEBEB;color:#A32D2D;}
+.dsa-issue:hover{background:#F7C1C1;}
+/* report issue modal-like inline form */
+.issue-form{padding:8px 14px;border-top:0.5px solid #f1efe8;background:#FCEBEB;}
+.issue-form select,.issue-form textarea{width:100%;margin-bottom:6px;padding:6px 8px;border-radius:6px;border:0.5px solid #F09595;font-size:11px;font-family:inherit;background:#fff;outline:none;}
+.issue-form textarea{height:52px;resize:none;}
+.issue-submit{width:100%;padding:8px;border-radius:7px;background:#A32D2D;color:#fff;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;}
+
+/* status pills (reused) */
+.sp{font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;}
+.s-sc{background:#EAF3DE;color:#3B6D11;}
+.s-ou{background:#FAEEDA;color:#854F0B;}
+.s-do{background:#E1F5EE;color:#085041;}
+.s-un{background:#FCEBEB;color:#A32D2D;}
+.s-fa{background:#f1efe8;color:#5F5E5A;}
+.db2{font-size:10px;color:#888780;padding:3px 7px;border-radius:4px;border:0.5px solid #d3d1c7;}
+.aw{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+.kr{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.kpi{background:#fff;border-radius:9px;border:0.5px solid #d3d1c7;padding:10px 13px;}
+.kv{font-size:20px;font-weight:500;color:#2C2C2A;}
+.kl{font-size:10px;color:#888780;margin-top:2px;}
+.kd{font-size:10px;color:#3B6D11;margin-top:2px;}
+.cr2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.cc{background:#fff;border-radius:9px;border:0.5px solid #d3d1c7;padding:13px;}
+.cht{font-size:12px;font-weight:500;color:#2C2C2A;margin-bottom:9px;}
+.br{display:flex;align-items:center;gap:7px;margin-bottom:7px;}
+.bl{font-size:10px;color:#888780;width:76px;text-align:right;flex-shrink:0;}
+.bt{flex:1;background:#f1efe8;border-radius:4px;height:18px;overflow:hidden;}
+.bf{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:5px;}
+.bv{font-size:10px;font-weight:500;}
+.bfg{background:#97C459;} .bfg .bv{color:#173404;}
+.bft{background:#5DCAA5;} .bft .bv{color:#04342C;}
+.bfa{background:#EF9F27;} .bfa .bv{color:#412402;}
+.ar{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #f1efe8;}
+.ar:last-child{border-bottom:none;}
+.an{font-size:11px;color:#444441;}
+.ap2{font-size:11px;font-weight:500;color:#3B6D11;}
+.mb{height:3px;background:#f1efe8;border-radius:4px;margin-top:2px;width:100px;}
+.mf{height:100%;border-radius:4px;background:#97C459;}
+.rc{background:#fff;border-radius:9px;border:0.5px solid #d3d1c7;padding:13px;}
+.rtbl{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;}
+.rtbl th{text-align:left;font-weight:500;font-size:10px;color:#888780;padding:4px 7px;border-bottom:0.5px solid #d3d1c7;}
+.rtbl td{padding:5px 7px;border-bottom:0.5px solid #f1efe8;color:#444441;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rtbl tr:last-child td{border-bottom:none;}
+
+/* ===== SALES DASHBOARD v6 — COMMAND CENTER ===== */
+.sales-wrap{flex:1;overflow-y:auto;background:#f5f4f0;}
+
+/* sticky alert bar */
+.alert-bar{background:#1c2b1a;padding:9px 18px;display:flex;gap:8px;align-items:center;overflow-x:auto;flex-shrink:0;border-bottom:1px solid #27500a;}
+.alert-pill{display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;flex-shrink:0;}
+.alert-pill.warn{background:#FAEEDA;color:#854F0B;}
+.alert-pill.good{background:#EAF3DE;color:#3B6D11;}
+.alert-pill.info{background:#E6F1FB;color:#0C447C;}
+.alert-pill.hot{background:#FCEBEB;color:#A32D2D;}
+.alert-icon{font-size:13px;line-height:1;}
+
+/* header */
+.sales-header{background:#243322;padding:11px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.sales-header-title{font-size:14px;font-weight:500;color:#C0DD97;}
+.sales-header-sub{font-size:10px;color:#639922;margin-top:1px;}
+.filter-bar{display:flex;gap:4px;}
+.filter-btn{padding:4px 11px;border-radius:20px;border:0.5px solid #3B6D11;background:transparent;color:#5DCAA5;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;}
+.filter-btn.fa{background:#3B6D11;color:#C0DD97;border-color:#3B6D11;}
+.filter-btn:hover:not(.fa){background:#27500A;}
+.sales-body{padding:13px 16px;display:flex;flex-direction:column;gap:12px;}
+
+/* top KPI row — 4 large + 1 attach */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr) 1.1fr;gap:9px;}
+.kpi-card{background:#fff;border-radius:11px;border:0.5px solid #d3d1c7;padding:13px 15px;}
+.kpi-card.highlight{background:#1c2b1a;border-color:#3B6D11;}
+.kpi-val{font-size:24px;font-weight:500;color:#2C2C2A;line-height:1;}
+.kpi-card.highlight .kpi-val{color:#C0DD97;}
+.kpi-label{font-size:10px;color:#888780;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em;}
+.kpi-card.highlight .kpi-label{color:#639922;}
+.kpi-delta{font-size:10px;color:#3B6D11;margin-top:3px;font-weight:500;}
+.kpi-delta.neg{color:#A32D2D;}
+.kpi-card.highlight .kpi-delta{color:#5DCAA5;}
+
+/* attach rates */
+.attach-grid{display:flex;flex-direction:column;gap:5px;margin-top:6px;}
+.attach-row{display:flex;align-items:center;gap:7px;}
+.attach-label{font-size:10px;color:#888780;width:50px;flex-shrink:0;}
+.attach-track{flex:1;background:#f1efe8;border-radius:3px;height:13px;overflow:hidden;}
+.attach-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:4px;}
+.attach-pct{font-size:9px;font-weight:500;}
+.attach-opportunity{font-size:10px;color:#A32D2D;margin-top:5px;padding:4px 7px;background:#FCEBEB;border-radius:5px;}
+
+/* PACE PANEL — the command center hero */
+.pace-panel{background:#fff;border-radius:11px;border:0.5px solid #d3d1c7;padding:14px 16px;}
+.pace-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+.pace-block{display:flex;flex-direction:column;}
+.pace-hour-val{font-size:30px;font-weight:500;color:#2C2C2A;line-height:1;}
+.pace-hour-label{font-size:10px;color:#888780;margin-top:3px;text-transform:uppercase;letter-spacing:0.05em;}
+.pace-indicator{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:500;margin-top:6px;}
+.pace-indicator.ahead{background:#EAF3DE;color:#27500A;}
+.pace-indicator.behind{background:#FCEBEB;color:#A32D2D;}
+.pace-indicator.neutral{background:#f1efe8;color:#5F5E5A;}
+.pace-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.pace-dot.ahead{background:#639922;}
+.pace-dot.behind{background:#E24B4A;}
+.pace-dot.neutral{background:#888780;}
+.pace-projection{background:#f5f4f0;border-radius:8px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;}
+.proj-label{font-size:11px;color:#888780;}
+.proj-val{font-size:18px;font-weight:500;color:#2C2C2A;}
+.proj-sub{font-size:10px;color:#3B6D11;margin-top:1px;}
+.proj-range{font-size:10px;color:#888780;margin-top:1px;}
+
+/* chart section */
+.chart-section{background:#fff;border-radius:11px;border:0.5px solid #d3d1c7;padding:13px 15px;}
+.chart-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.chart-title-txt{font-size:12px;font-weight:500;color:#2C2C2A;}
+.chart-toggles{display:flex;gap:4px;}
+.ctog{padding:4px 9px;border-radius:5px;border:0.5px solid #d3d1c7;background:#f5f4f0;font-size:10px;font-weight:500;color:#888780;cursor:pointer;font-family:inherit;}
+.ctog.ca{background:#3B6D11;border-color:#3B6D11;color:#C0DD97;}
+.chart-canvas-wrap{position:relative;height:180px;}
+
+/* 3-col intel row */
+.intel-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.intel-card{background:#fff;border-radius:11px;border:0.5px solid #d3d1c7;padding:13px 14px;}
+.intel-title{font-size:11px;font-weight:500;color:#2C2C2A;margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+.intel-badge{font-size:9px;padding:1px 6px;border-radius:3px;background:#EAF3DE;color:#3B6D11;font-weight:500;}
+
+/* peak rows */
+.peak-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #f1efe8;font-size:11px;}
+.peak-row:last-child{border-bottom:none;}
+.peak-rank{width:18px;height:18px;border-radius:50%;background:#EAF3DE;color:#3B6D11;font-size:9px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.peak-rank.gold{background:#FAC775;color:#633806;}
+.peak-time{color:#444441;font-weight:500;margin-left:7px;flex:1;}
+.peak-rev{color:#3B6D11;font-weight:500;}
+
+/* add-on intel */
+.addon-intel-row{padding:6px 0;border-bottom:0.5px solid #f1efe8;}
+.addon-intel-row:last-child{border-bottom:none;}
+.addon-name-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
+.addon-name{font-size:11px;color:#444441;font-weight:500;}
+.addon-rev{font-size:11px;color:#2C2C2A;font-weight:500;}
+.addon-bar-track{background:#f1efe8;border-radius:3px;height:8px;overflow:hidden;margin-bottom:3px;}
+.addon-bar-fill{height:100%;border-radius:3px;}
+.addon-insight{font-size:9px;color:#3B6D11;font-style:italic;}
+
+/* customer intel */
+.cust-split{display:flex;gap:0;margin-bottom:9px;border-radius:7px;overflow:hidden;}
+.cust-split-seg{flex:1;padding:8px 10px;text-align:center;}
+.cust-split-seg.new-seg{background:#E6F1FB;}
+.cust-split-seg.ret-seg{background:#EAF3DE;}
+.cust-split-num{font-size:18px;font-weight:500;}
+.new-seg .cust-split-num{color:#0C447C;}
+.ret-seg .cust-split-num{color:#27500A;}
+.cust-split-lbl{font-size:9px;margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;}
+.new-seg .cust-split-lbl{color:#185FA5;}
+.ret-seg .cust-split-lbl{color:#3B6D11;}
+.top-cust-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid #f1efe8;font-size:11px;}
+.top-cust-row:last-child{border-bottom:none;}
+.top-cust-name{color:#444441;font-weight:500;}
+.top-cust-stat{color:#888780;}
+.insight-callout{background:#f5f4f0;border-left:2px solid #639922;padding:6px 9px;border-radius:0 6px 6px 0;font-size:10px;color:#444441;margin-top:8px;line-height:1.5;}
+
+/* week table */
+.week-card{background:#fff;border-radius:11px;border:0.5px solid #d3d1c7;padding:13px 15px;}
+.trend-tbl{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;}
+.trend-tbl th{text-align:left;font-weight:500;font-size:10px;color:#888780;padding:4px 6px;border-bottom:0.5px solid #d3d1c7;}
+.trend-tbl td{padding:5px 6px;border-bottom:0.5px solid #f1efe8;color:#444441;}
+.trend-tbl tr:last-child td{border-bottom:none;}
+.today-row td{font-weight:500;color:#2C2C2A;}
+.peak-badge{font-size:9px;font-weight:500;background:#EAF3DE;color:#3B6D11;padding:1px 5px;border-radius:3px;margin-left:4px;}
+
+/* dashboard bar */
+.dash-bar-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+.dash-bar-lbl{font-size:10px;color:#888780;width:68px;text-align:right;flex-shrink:0;}
+.dash-bar-track{flex:1;background:#f1efe8;border-radius:3px;height:15px;overflow:hidden;}
+.dash-bar-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:5px;}
+.dash-bar-val{font-size:9px;font-weight:500;}
+.bf-gr{background:#97C459;} .bf-gr .dash-bar-val{color:#173404;}
+.bf-te{background:#5DCAA5;} .bf-te .dash-bar-val{color:#04342C;}
+.bf-am{background:#EF9F27;} .bf-am .dash-bar-val{color:#412402;}
+.bf-bl{background:#85B7EB;} .bf-bl .dash-bar-val{color:#042C53;}
+.bf-co{background:#F0997B;} .bf-co .dash-bar-val{color:#4A1B0C;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="logo">TreeLot</div>
+    <div class="loc">Main St Lot — Dallas, TX</div>
+    <div class="tright">
+      <div class="tuser">Sarah K. (Staff)</div>
+      <div class="ttime">Sat Dec 14 · 2:41 PM</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="sidebar">
+      <button class="sb-btn active" id="sb-pos" onclick="switchScreen('pos')">
+        <svg class="si" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" fill="#C0DD97"/><rect x="9" y="1" width="6" height="6" rx="1" fill="#C0DD97"/><rect x="1" y="9" width="6" height="6" rx="1" fill="#C0DD97"/><rect x="9" y="9" width="6" height="6" rx="1" fill="#C0DD97"/></svg>
+        <span class="sl">POS / Checkout</span>
+      </button>
+      <button class="sb-btn" id="sb-delivery" onclick="switchScreen('delivery')">
+        <svg class="si" viewBox="0 0 16 16" fill="none"><rect x="1" y="5" width="9" height="7" rx="1" stroke="#5DCAA5" stroke-width="1.2"/><path d="M10 7.5h2.5L14 10v2h-4V7.5z" stroke="#5DCAA5" stroke-width="1.2"/><circle cx="4.5" cy="13" r="1.2" fill="#5DCAA5"/><circle cx="12" cy="13" r="1.2" fill="#5DCAA5"/></svg>
+        <span class="sl">Deliveries</span>
+      </button>
+      <div class="sdiv"></div>
+      <button class="sb-btn" id="sb-analytics" onclick="switchScreen('analytics')">
+        <svg class="si" viewBox="0 0 16 16" fill="none"><rect x="2" y="9" width="3" height="5" rx="1" fill="#5DCAA5"/><rect x="6.5" y="6" width="3" height="8" rx="1" fill="#5DCAA5"/><rect x="11" y="3" width="3" height="11" rx="1" fill="#5DCAA5"/></svg>
+        <span class="sl">Analytics</span>
+      </button>
+      <button class="sb-btn" id="sb-sales" onclick="switchScreen('sales');initSalesCharts();">
+        <svg class="si" viewBox="0 0 16 16" fill="none"><path d="M2 12l3.5-4 3 2.5L12 5l2 2" stroke="#5DCAA5" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="5" r="1.2" fill="#5DCAA5"/></svg>
+        <span class="sl">Sales</span>
+      </button>
+      <button class="sb-btn">
+        <svg class="si" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="#5DCAA5" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="#5DCAA5" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span class="sl">Settings</span>
+      </button>
+    </div>
+
+    <div class="main">
+
+      <!-- POS -->
+      <div class="screen active" id="screen-pos">
+
+        <!-- left: customer list -->
+        <div class="pos-left">
+          <div class="sw">
+            <input class="si-field" id="search-inp" placeholder="Search name, phone, email..." oninput="filterCustomers(this.value)" />
+          </div>
+          <button class="ncb" onclick="openNewCustomer()">+ New customer</button>
+          <div class="slbl">Customers</div>
+          <div class="cl" id="cust-list"></div>
+        </div>
+
+        <!-- mid: order builder -->
+        <div class="pos-mid">
+          <div class="pi" id="pos-form-wrap">
+
+            <!-- empty state -->
+            <div id="no-sel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 2rem;text-align:center;gap:10px;">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" stroke="#d3d1c7"/><path d="M12 18h12M18 12v12" stroke="#97C459" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div style="font-size:13px;font-weight:500;color:#888780;">Select a customer to begin</div>
+              <div style="font-size:11px;color:#B4B2A9;">Search or add a new customer</div>
+            </div>
+
+            <!-- new customer form -->
+            <div id="new-cust-form" style="display:none;flex-direction:column;gap:9px;">
+              <div class="card">
+                <div class="ph">
+                  <div class="pav ag">NC</div>
+                  <div>
+                    <div class="pn">New customer</div>
+                    <div class="ps">Fill in details below</div>
+                  </div>
+                </div>
+                <div class="nc-form">
+                  <div>
+                    <div class="nf-label">First name *</div>
+                    <input class="nf-input" id="nc-first" placeholder="Jane" />
+                  </div>
+                  <div>
+                    <div class="nf-label">Last name *</div>
+                    <input class="nf-input" id="nc-last" placeholder="Smith" />
+                  </div>
+                  <div>
+                    <div class="nf-label">Phone *</div>
+                    <input class="nf-input" id="nc-phone" placeholder="(214) 555-0000" />
+                  </div>
+                  <div>
+                    <div class="nf-label">Email</div>
+                    <input class="nf-input" id="nc-email" placeholder="jane@email.com" type="email" />
+                  </div>
+                  <div class="full">
+                    <div class="nf-label">Address</div>
+                    <input class="nf-input" id="nc-addr" placeholder="123 Main St, Dallas, TX 75201" />
+                  </div>
+                  <div class="full">
+                    <button class="save-cust-btn" onclick="saveNewCustomer()">Save &amp; continue to purchase</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- existing customer purchase form -->
+            <div id="pform" style="display:none;flex-direction:column;gap:9px;">
+              <div class="card">
+                <div class="ph">
+                  <div class="pav ag" id="p-av">SH</div>
+                  <div style="flex:1;">
+                    <div class="pn" id="p-name">—</div>
+                    <div class="ps" id="p-since">—</div>
+                  </div>
+                  <div class="rb" id="p-badge" style="display:none"></div>
+                </div>
+                <div class="slbl" style="padding:0 0 5px">Purchase history</div>
+                <div class="hs" id="hist-strip"></div>
+              </div>
+
+              <div class="card">
+                <div class="ct">Quick combos</div>
+                <div class="cbstrip">
+                  <button class="cbb" onclick="applyCombo(0)">7ft Fraser + Stand + Lights</button>
+                  <button class="cbb" onclick="applyCombo(1)">7ft Fraser + Stand</button>
+                  <button class="cbb" onclick="applyCombo(2)">9ft Noble + Stand</button>
+                  <button class="cbb" onclick="applyCombo(3)">7ft Fraser only</button>
+                </div>
+              </div>
+
+              <div class="card" style="display:flex;flex-direction:column;gap:11px;">
+                <!-- tree type -->
+                <div>
+                  <div class="ct">Tree type</div>
+                  <div class="tgrid">
+                    <button class="tbtn" id="t-fraser" onclick="selTree('fraser','Fraser Fir')">Fraser Fir</button>
+                    <button class="tbtn" id="t-noble" onclick="selTree('noble','Noble Fir')">Noble Fir</button>
+                    <button class="tbtn" id="t-other" onclick="selTree('other','Other')">Other</button>
+                  </div>
+                  <div id="other-picker" style="display:none;margin-top:8px;">
+                    <div class="other-grid">
+                      <button class="obtn" id="o-douglas" onclick="selOther('Douglas Fir','douglas')">Douglas Fir</button>
+                      <button class="obtn" id="o-balsam" onclick="selOther('Balsam Fir','balsam')">Balsam Fir</button>
+                      <button class="obtn" id="o-blue" onclick="selOther('Blue Spruce','blue')">Blue Spruce</button>
+                      <button class="obtn" id="o-scotch" onclick="selOther('Scotch Pine','scotch')">Scotch Pine</button>
+                    </div>
+                    <input class="oti" id="other-text" placeholder="Or type tree name..." oninput="setCustomTree(this.value)" />
+                  </div>
+                </div>
+
+                <!-- size ranges -->
+                <div>
+                  <div class="ct">Size</div>
+                  <div class="sgrid">
+                    <button class="sbtn" id="sz-0" onclick="selSize(0,'3–5ft')">3–5ft</button>
+                    <button class="sbtn" id="sz-1" onclick="selSize(1,'6–8ft')">6–8ft</button>
+                    <button class="sbtn" id="sz-2" onclick="selSize(2,'9–10ft')">9–10ft</button>
+                    <button class="sbtn" id="sz-3" onclick="selSize(3,'10–12ft')">10–12ft</button>
+                    <button class="sbtn" id="sz-4" onclick="selSize(4,'12–14ft')">12–14ft</button>
+                    <button class="sbtn" id="sz-5" onclick="selSize(5,'14ft+')">14ft+</button>
+                  </div>
+                </div>
+
+                <!-- add-ons -->
+                <div>
+                  <div class="ct">Add-ons</div>
+                  <div class="togrow">
+                    <button class="tog" id="tog-stand" onclick="togAddon('stand')">Stand</button>
+                    <button class="tog" id="tog-lights" onclick="togAddon('lights')">Lights</button>
+                    <button class="tog" id="tog-delivery" onclick="togDelivery()">Delivery</button>
+                  </div>
+
+                  <!-- delivery expansion -->
+                  <div class="deliv-fields" id="deliv-fields" style="display:none;">
+                    <div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+                        <div class="df-label">Delivery address</div>
+                        <button class="default-addr-btn" id="use-default-btn" onclick="useDefaultAddress()">Use default address</button>
+                      </div>
+                      <input class="df-input" id="deliv-addr" placeholder="Enter delivery address..." />
+                    </div>
+                    <div class="df-row">
+                      <div style="flex:1;">
+                        <div class="df-label">Delivery date</div>
+                        <input class="df-input" id="deliv-date" type="date" />
+                      </div>
+                      <div style="flex:1;">
+                        <div class="df-label">Time window</div>
+                        <select class="df-input" id="deliv-window" style="cursor:pointer;">
+                          <option value="">Select...</option>
+                          <option>Morning (8am–12pm)</option>
+                          <option>Afternoon (12pm–5pm)</option>
+                          <option>Evening (5pm–8pm)</option>
+                          <option>Anytime</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="ct">Notes</div>
+                  <input class="ni" placeholder="Delivery instructions, preferences..." />
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div id="success-msg">
+            <div style="width:56px;height:56px;border-radius:50%;background:#EAF3DE;display:flex;align-items:center;justify-content:center;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#3B6D11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div style="font-size:17px;font-weight:500;color:#2C2C2A;">Sale complete</div>
+            <div style="font-size:12px;color:#888780;" id="success-detail"></div>
+            <button id="delivery-link-btn" onclick="switchScreen('delivery')" style="display:none;margin-top:4px;padding:9px 18px;border-radius:7px;border:none;background:#3B6D11;color:#C0DD97;font-size:12px;font-weight:500;font-family:inherit;cursor:pointer;">View in deliveries &#8594;</button>
+            <button onclick="resetAll()" style="margin-top:6px;padding:9px 22px;border-radius:7px;border:0.5px solid #d3d1c7;background:#fff;font-size:13px;font-family:inherit;color:#2C2C2A;cursor:pointer;">Next customer</button>
+          </div>
+        </div>
+
+        <!-- right: payment calculator -->
+        <div class="pos-right">
+          <div class="calc-header">
+            <div class="calc-title">Payment calculator</div>
+            <div class="price-display">
+              <div class="price-row">
+                <span class="price-row-lbl">Subtotal</span>
+                <span class="price-row-val" id="display-subtotal">$0.00</span>
+              </div>
+              <div class="price-row">
+                <span class="price-row-lbl">Tax (8.25%)</span>
+                <span class="price-row-val" id="display-tax">$0.00</span>
+              </div>
+              <div class="price-divider"></div>
+              <div class="pd-lbl">Total</div>
+              <div class="pd-val" id="calc-display">$0.00</div>
+            </div>
+            <div style="font-size:10px;color:#888780;margin-bottom:4px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Quick price</div>
+            <div class="preset-row">
+              <button class="preset-btn" onclick="setPrice(75)">$75</button>
+              <button class="preset-btn" onclick="setPrice(100)">$100</button>
+              <button class="preset-btn" onclick="setPrice(125)">$125</button>
+              <button class="preset-btn" onclick="setPrice(150)">$150</button>
+              <button class="preset-btn" onclick="setPrice(175)">$175</button>
+              <button class="preset-btn" onclick="setPrice(200)">$200</button>
+              <button class="preset-btn" onclick="setPrice(225)">$225</button>
+              <button class="preset-btn" onclick="setPrice(250)">$250</button>
+              <button class="preset-btn" onclick="setPrice(300)">$300</button>
+            </div>
+          </div>
+
+          <div class="calc-body">
+            <div style="font-size:10px;color:#888780;margin-bottom:4px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Custom amount</div>
+            <div class="numpad">
+              <button class="nk" onclick="numpad('7')">7</button>
+              <button class="nk" onclick="numpad('8')">8</button>
+              <button class="nk" onclick="numpad('9')">9</button>
+              <button class="nk" onclick="numpad('4')">4</button>
+              <button class="nk" onclick="numpad('5')">5</button>
+              <button class="nk" onclick="numpad('6')">6</button>
+              <button class="nk" onclick="numpad('1')">1</button>
+              <button class="nk" onclick="numpad('2')">2</button>
+              <button class="nk" onclick="numpad('3')">3</button>
+              <button class="nk del" onclick="numpad('del')">&#9003;</button>
+              <button class="nk" onclick="numpad('0')">0</button>
+              <button class="nk clear" onclick="numpad('clr')">Clear</button>
+            </div>
+
+            <div style="font-size:10px;color:#888780;margin-bottom:4px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Payment method</div>
+            <div class="pm-row">
+              <button class="pm-btn" id="pm-cash" onclick="selPayment('cash')">Cash</button>
+              <button class="pm-btn" id="pm-card" onclick="selPayment('card')">Card</button>
+              <button class="pm-btn" id="pm-venmo" onclick="selPayment('venmo')">Venmo</button>
+              <button class="pm-btn" id="pm-zelle" onclick="selPayment('zelle')">Zelle</button>
+            </div>
+
+            <!-- cash section: numpad + presets -->
+            <div class="cash-section" id="cash-section" style="display:none;">
+              <div class="cash-lbl">Cash tendered</div>
+              <div class="cash-entry-display" id="cash-display">—</div>
+              <!-- cash numpad -->
+              <div class="cash-numpad">
+                <button class="cnk" onclick="cashNumpad('7')">7</button>
+                <button class="cnk" onclick="cashNumpad('8')">8</button>
+                <button class="cnk" onclick="cashNumpad('9')">9</button>
+                <button class="cnk" onclick="cashNumpad('4')">4</button>
+                <button class="cnk" onclick="cashNumpad('5')">5</button>
+                <button class="cnk" onclick="cashNumpad('6')">6</button>
+                <button class="cnk" onclick="cashNumpad('1')">1</button>
+                <button class="cnk" onclick="cashNumpad('2')">2</button>
+                <button class="cnk" onclick="cashNumpad('3')">3</button>
+                <button class="cnk cdel" onclick="cashNumpad('del')">&#9003;</button>
+                <button class="cnk" onclick="cashNumpad('0')">0</button>
+                <button class="cnk cclr" onclick="cashNumpad('clr')">Clear</button>
+              </div>
+              <div style="font-size:10px;color:#888780;margin-bottom:4px;">Or use preset:</div>
+              <div class="cash-presets" id="cash-presets"></div>
+              <div class="change-row">
+                <span class="change-lbl">Change due</span>
+                <span class="change-val" id="change-val">—</span>
+              </div>
+            </div>
+
+            <button class="comp-btn" id="comp-btn" onclick="completeSale()" disabled>Complete sale</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delivery Dispatcher v7 -->
+      <div class="screen" id="screen-delivery" style="position:relative;">
+
+        <!-- DRIVER MODE OVERLAY — slides over entire screen on mobile/driver view -->
+        <div class="driver-overlay" id="driver-overlay">
+          <div class="driver-topbar">
+            <div>
+              <div class="driver-title" id="driver-overlay-name">Marcus D. — Route</div>
+            </div>
+            <button class="driver-close" onclick="closeDriverMode()">&#8592; Dispatcher</button>
+          </div>
+          <div class="driver-progress">
+            <div class="dp-metric"><div class="dp-val" id="dv-done">2</div><div class="dp-lbl">Delivered</div></div>
+            <div class="dp-metric"><div class="dp-val" id="dv-remain">3</div><div class="dp-lbl">Remaining</div></div>
+            <div class="dp-metric"><div class="dp-val" id="dv-total">5</div><div class="dp-lbl">Total</div></div>
+            <div style="margin-left:auto;">
+              <button onclick="markRouteStarted()" style="padding:6px 12px;border-radius:6px;background:#639922;border:none;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;" id="start-route-btn">Start route</button>
+            </div>
+          </div>
+          <div class="driver-list" id="driver-stop-list"></div>
+        </div>
+
+        <!-- DISPATCHER PROPER -->
+        <div class="deliv-wrap">
+          <!-- Top bar -->
+          <div class="disp-topbar">
+            <div>
+              <div class="disp-title">Delivery dispatcher</div>
+              <div class="disp-date" id="disp-date-lbl">Sat, Dec 14 · Main St Lot</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="disp-view-toggle">
+                <button class="dvt-btn active" id="view-list" onclick="setDispView('list')">List</button>
+                <button class="dvt-btn" id="view-driver" onclick="setDispView('driver')">By driver</button>
+              </div>
+              <button class="route-action-btn" onclick="autoGroupByZip()" style="font-size:10px;">Auto-group by ZIP</button>
+            </div>
+          </div>
+
+          <!-- Ops metrics strip -->
+          <div class="ops-strip" id="ops-strip">
+            <div class="ops-metric"><div class="ops-val" id="ops-total">18</div><div class="ops-lbl">Total</div></div>
+            <div class="ops-sep"></div>
+            <div class="ops-metric danger-metric"><div class="ops-val" id="ops-unassigned">6</div><div class="ops-lbl">Unassigned</div></div>
+            <div class="ops-sep"></div>
+            <div class="ops-metric alert-metric"><div class="ops-val" id="ops-out">4</div><div class="ops-lbl">Out for delivery</div></div>
+            <div class="ops-sep"></div>
+            <div class="ops-metric"><div class="ops-val" id="ops-done">6</div><div class="ops-lbl">Delivered</div></div>
+            <div class="ops-sep"></div>
+            <div class="ops-metric"><div class="ops-val">2</div><div class="ops-lbl">Drivers active</div></div>
+            <div class="ops-sep"></div>
+            <div class="ops-metric"><div class="ops-val">~4.5h</div><div class="ops-lbl">Est. route time</div></div>
+          </div>
+
+          <!-- 3-col body -->
+          <div class="disp-body">
+
+            <!-- LEFT: delivery queue -->
+            <div class="disp-left">
+              <div class="disp-left-hdr">
+                <div class="disp-sect-title">Queue</div>
+                <div style="display:flex;gap:4px;">
+                  <button class="group-btn" onclick="groupByWindow()">Group by window</button>
+                </div>
+              </div>
+              <div class="dq-filter-row">
+                <button class="dq-filt fa" id="dqf-all" onclick="setDQFilter('all')">All</button>
+                <button class="dq-filt" id="dqf-unassigned" onclick="setDQFilter('unassigned')">Unassigned</button>
+                <button class="dq-filt" id="dqf-out" onclick="setDQFilter('out')">Out</button>
+                <button class="dq-filt" id="dqf-done" onclick="setDQFilter('delivered')">Done</button>
+              </div>
+              <div class="dq-list" id="dq-list"></div>
+            </div>
+
+            <!-- CENTER: route board -->
+            <div class="disp-center">
+              <div class="route-hdr">
+                <div class="driver-tabs" id="driver-tabs">
+                  <div class="driver-tab active" id="dtab-all" onclick="setDriverTab('all')">
+                    <div class="driver-color" style="background:#888780;"></div>All stops
+                  </div>
+                  <div class="driver-tab" id="dtab-marcus" onclick="setDriverTab('marcus')">
+                    <div class="driver-color" style="background:#639922;"></div>Marcus D.
+                  </div>
+                  <div class="driver-tab" id="dtab-janelle" onclick="setDriverTab('janelle')">
+                    <div class="driver-color" style="background:#185FA5;"></div>Janelle R.
+                  </div>
+                </div>
+                <div class="route-actions">
+                  <button class="route-action-btn" onclick="openDriverMode('Marcus D.','marcus')">&#128241; Driver view &#8594;</button>
+                  <button class="route-action-btn primary" onclick="optimizeRoute()">Optimize route</button>
+                </div>
+              </div>
+              <div class="route-board" id="route-board"></div>
+            </div>
+
+            <!-- RIGHT: detail panel -->
+            <div class="det-panel" id="det-panel">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#888780;">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="8" width="20" height="16" rx="2" stroke="#d3d1c7" stroke-width="1.5"/><path d="M10 14h12M10 18h8" stroke="#d3d1c7" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <div style="font-size:12px;font-weight:500;color:#888780;">Select a delivery</div>
+                <div style="font-size:10px;color:#B4B2A9;text-align:center;max-width:160px;">Click any stop in the queue or route board to see details and take action</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics -->
+      <div class="screen" id="screen-analytics">
+        <div class="aw">
+          <div class="kr">
+            <div class="kpi"><div class="kv">$24,810</div><div class="kl">Season revenue</div><div class="kd">+12% vs last year</div></div>
+            <div class="kpi"><div class="kv">312</div><div class="kl">Trees sold</div><div class="kd">+8% vs last year</div></div>
+            <div class="kpi"><div class="kv">68%</div><div class="kl">Repeat customers</div><div class="kd">+4pts</div></div>
+            <div class="kpi"><div class="kv">94</div><div class="kl">Deliveries</div><div class="kd">30% of orders</div></div>
+          </div>
+          <div class="cr2">
+            <div class="cc">
+              <div class="cht">Sales by tree type</div>
+              <div class="br"><div class="bl">Fraser Fir</div><div class="bt"><div class="bf bfg" style="width:82%"><span class="bv">186 sold</span></div></div></div>
+              <div class="br"><div class="bl">Noble Fir</div><div class="bt"><div class="bf bft" style="width:46%"><span class="bv">79 sold</span></div></div></div>
+              <div class="br"><div class="bl">Other</div><div class="bt"><div class="bf bfa" style="width:27%"><span class="bv">47 sold</span></div></div></div>
+            </div>
+            <div class="cc">
+              <div class="cht">Add-on attach rates</div>
+              <div class="ar"><div><div class="an">Stand</div><div class="mb"><div class="mf" style="width:88px"></div></div></div><div class="ap2">74%</div></div>
+              <div class="ar"><div><div class="an">Lights</div><div class="mb"><div class="mf" style="width:70px;background:#5DCAA5"></div></div></div><div class="ap2" style="color:#085041">58%</div></div>
+              <div class="ar"><div><div class="an">Delivery</div><div class="mb"><div class="mf" style="width:36px;background:#EF9F27"></div></div></div><div class="ap2" style="color:#854F0B">30%</div></div>
+              <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid #f1efe8;">
+                <div class="cht" style="margin-bottom:7px">Top customers</div>
+                <div style="font-size:11px;color:#444441;display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid #f1efe8;"><span>Sarah Henderson</span><span style="color:#3B6D11;font-weight:500">5 seasons · $185</span></div>
+                <div style="font-size:11px;color:#444441;display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid #f1efe8;"><span>Mike Hendricks</span><span style="color:#3B6D11;font-weight:500">2 seasons · $220</span></div>
+                <div style="font-size:11px;color:#444441;display:flex;justify-content:space-between;padding:3px 0;"><span>James Okafor</span><span style="color:#3B6D11;font-weight:500">1 season · $240</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="rc">
+            <div class="cht" style="margin-bottom:8px">Recent transactions</div>
+            <table class="rtbl">
+              <tr><th style="width:18%">Customer</th><th style="width:16%">Tree</th><th style="width:12%">Size</th><th style="width:8%">Stand</th><th style="width:8%">Lights</th><th style="width:10%">Delivery</th><th style="width:10%">Method</th><th style="width:8%">Total</th><th style="width:10%">Staff</th></tr>
+              <tr><td>Sarah Henderson</td><td>Fraser Fir</td><td>6–8ft</td><td style="color:#3B6D11">Yes</td><td style="color:#3B6D11">Yes</td><td style="color:#888780">No</td><td>Cash</td><td style="font-weight:500">$185</td><td>Sarah K.</td></tr>
+              <tr><td>James Okafor</td><td>Noble Fir</td><td>9–10ft</td><td style="color:#3B6D11">Yes</td><td style="color:#888780">No</td><td style="color:#3B6D11">Yes</td><td>Card</td><td style="font-weight:500">$240</td><td>Marcus D.</td></tr>
+              <tr><td>Linda Pham</td><td>Fraser Fir</td><td>6–8ft</td><td style="color:#888780">No</td><td style="color:#3B6D11">Yes</td><td style="color:#3B6D11">Yes</td><td>Venmo</td><td style="font-weight:500">$185</td><td>Sarah K.</td></tr>
+              <tr><td>Tom Brecht</td><td>Douglas Fir</td><td>9–10ft</td><td style="color:#3B6D11">Yes</td><td style="color:#3B6D11">Yes</td><td style="color:#3B6D11">Yes</td><td>Cash</td><td style="font-weight:500">$220</td><td>Marcus D.</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sales Dashboard v6 — Command Center -->
+      <div class="screen" id="screen-sales">
+        <div class="sales-wrap">
+
+          <!-- ALERT BAR — sticky operational alerts at the very top -->
+          <div class="alert-bar" id="alert-bar">
+            <div class="alert-pill good"><span class="alert-icon">&#127807;</span>Pace +18% vs yesterday — on track for best Saturday</div>
+            <div class="alert-pill hot"><span class="alert-icon">&#128293;</span>Peak window 11am–2pm — 4 transactions in last hour</div>
+            <div class="alert-pill warn"><span class="alert-icon">&#9888;</span>Delivery attach rate 18% today — avg is 32%</div>
+            <div class="alert-pill info"><span class="alert-icon">&#128230;</span>2 unassigned deliveries need a driver</div>
+            <div class="alert-pill good"><span class="alert-icon">&#127876;</span>6–8ft Fraser Fir is highest demand today (11 sold)</div>
+          </div>
+
+          <!-- HEADER -->
+          <div class="sales-header">
+            <div>
+              <div class="sales-header-title">Sales command center</div>
+              <div class="sales-header-sub" id="sales-sub-date">Sat, Dec 14 · 2:41 PM · Main St Lot</div>
+            </div>
+            <div class="filter-bar">
+              <button class="filter-btn fa" id="sf-today" onclick="setSalesFilter('today')">Today</button>
+              <button class="filter-btn" id="sf-week" onclick="setSalesFilter('week')">This week</button>
+              <button class="filter-btn" id="sf-season" onclick="setSalesFilter('season')">This season</button>
+            </div>
+          </div>
+
+          <div class="sales-body">
+
+            <!-- ROW 1: KPI cards -->
+            <div class="kpi-grid">
+              <div class="kpi-card highlight">
+                <div class="kpi-val" id="s-revenue">$3,510</div>
+                <div class="kpi-label">Revenue today</div>
+                <div class="kpi-delta" id="s-rev-delta">&#8593; $690 vs yesterday</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-val" id="s-txns">21</div>
+                <div class="kpi-label">Transactions</div>
+                <div class="kpi-delta" id="s-txn-delta">&#8593; 4 vs yesterday</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-val" id="s-aov">$167</div>
+                <div class="kpi-label">Avg order value</div>
+                <div class="kpi-delta" id="s-aov-delta">&#8593; $13 vs yesterday</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-val" id="s-proj">$4,820</div>
+                <div class="kpi-label">Projected EOD</div>
+                <div class="kpi-delta" id="s-proj-sub">Based on current pace</div>
+              </div>
+              <div class="kpi-card" style="padding:11px 13px;">
+                <div class="kpi-label" style="margin-bottom:6px;color:#888780;">Add-on attach rates</div>
+                <div class="attach-grid">
+                  <div class="attach-row">
+                    <span class="attach-label">Stand</span>
+                    <div class="attach-track"><div class="attach-fill" id="s-stand-bar" style="width:74%;background:#97C459;"><span class="attach-pct" style="color:#173404;">74%</span></div></div>
+                  </div>
+                  <div class="attach-row">
+                    <span class="attach-label">Lights</span>
+                    <div class="attach-track"><div class="attach-fill" id="s-lights-bar" style="width:58%;background:#5DCAA5;"><span class="attach-pct" style="color:#04342C;">58%</span></div></div>
+                  </div>
+                  <div class="attach-row">
+                    <span class="attach-label">Delivery</span>
+                    <div class="attach-track"><div class="attach-fill" id="s-deliv-bar" style="width:18%;background:#E24B4A;"><span class="attach-pct" style="color:#fff;">18%</span></div></div>
+                  </div>
+                </div>
+                <div class="attach-opportunity" id="attach-alert">Delivery rate low — avg is 32%</div>
+              </div>
+            </div>
+
+            <!-- ROW 2: Pace panel — the command center hero -->
+            <div class="pace-panel">
+              <div style="font-size:12px;font-weight:500;color:#2C2C2A;margin-bottom:10px;">Current hour performance &amp; pace</div>
+              <div class="pace-top">
+                <div class="pace-block">
+                  <div class="pace-hour-val" id="pace-this-hour">$520</div>
+                  <div class="pace-hour-label">This hour (2pm)</div>
+                  <div class="pace-indicator ahead" id="pace-vs-yest">
+                    <div class="pace-dot ahead"></div>+18% vs yesterday 2pm
+                  </div>
+                </div>
+                <div class="pace-block">
+                  <div class="pace-hour-val" id="pace-vs-sat">$440</div>
+                  <div class="pace-hour-label">Last Saturday 2pm</div>
+                  <div class="pace-indicator ahead" id="pace-vs-sat-ind">
+                    <div class="pace-dot ahead"></div>+18% vs last Sat
+                  </div>
+                </div>
+                <div class="pace-block">
+                  <div style="font-size:11px;font-weight:500;color:#2C2C2A;margin-bottom:6px;">Top 3 hours today</div>
+                  <div style="font-size:11px;color:#444441;line-height:1.9;">
+                    <span style="font-weight:500;color:#3B6D11;">1.</span> 11am — $620<br>
+                    <span style="font-weight:500;color:#3B6D11;">2.</span> 3pm — $570<br>
+                    <span style="font-weight:500;color:#3B6D11;">3.</span> 2pm — $520
+                  </div>
+                </div>
+              </div>
+              <div class="pace-projection">
+                <div>
+                  <div class="proj-label">Projected end-of-day revenue</div>
+                  <div class="proj-val" id="pace-proj-val">$4,820</div>
+                  <div class="proj-sub">&#8593; $1,580 ahead of yesterday's close</div>
+                </div>
+                <div style="text-align:right;">
+                  <div class="proj-label">Revenue still open (est.)</div>
+                  <div style="font-size:16px;font-weight:500;color:#2C2C2A;margin-top:2px;">$1,310</div>
+                  <div class="proj-range" style="color:#888780;">5pm–7pm typically generates $1,100–$1,500</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ROW 3: Hourly chart -->
+            <div class="chart-section">
+              <div class="chart-hdr">
+                <div class="chart-title-txt" id="hourly-chart-title">Revenue by hour — today vs yesterday</div>
+                <div class="chart-toggles">
+                  <button class="ctog ca" id="tog-revenue" onclick="setChartMode('revenue')">Revenue</button>
+                  <button class="ctog" id="tog-transactions" onclick="setChartMode('transactions')">Transactions</button>
+                </div>
+              </div>
+              <div class="chart-canvas-wrap">
+                <canvas id="hourlyChart"></canvas>
+              </div>
+            </div>
+
+            <!-- ROW 4: 3-col intelligence -->
+            <div class="intel-row">
+
+              <!-- Peak Hours Intelligence -->
+              <div class="intel-card">
+                <div class="intel-title">Peak hours intelligence <span class="intel-badge">Season data</span></div>
+                <div style="font-size:10px;color:#888780;margin-bottom:7px;">Top 3 hours — today</div>
+                <div class="peak-row">
+                  <div class="peak-rank gold">1</div><span class="peak-time">11am</span><span class="peak-rev">$620</span>
+                </div>
+                <div class="peak-row">
+                  <div class="peak-rank">2</div><span class="peak-time">3pm</span><span class="peak-rev">$570</span>
+                </div>
+                <div class="peak-row">
+                  <div class="peak-rank">3</div><span class="peak-time">2pm</span><span class="peak-rev">$520</span>
+                </div>
+                <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid #f1efe8;">
+                  <div style="font-size:10px;color:#888780;margin-bottom:6px;">Top 3 hours — this season</div>
+                  <div class="peak-row">
+                    <div class="peak-rank gold">1</div><span class="peak-time">Sat 11am</span><span class="peak-rev">$840 avg</span>
+                  </div>
+                  <div class="peak-row">
+                    <div class="peak-rank">2</div><span class="peak-time">Sat 12pm</span><span class="peak-rev">$790 avg</span>
+                  </div>
+                  <div class="peak-row">
+                    <div class="peak-rank">3</div><span class="peak-time">Sun 1pm</span><span class="peak-rev">$720 avg</span>
+                  </div>
+                </div>
+                <div class="insight-callout">Saturdays 11am–3pm generate 42% of weekly revenue. Staff accordingly.</div>
+              </div>
+
+              <!-- Add-on Performance -->
+              <div class="intel-card">
+                <div class="intel-title">Add-on revenue &amp; insights</div>
+                <div class="addon-intel-row">
+                  <div class="addon-name-row"><span class="addon-name">Stands</span><span class="addon-rev">$388 &nbsp;<span style="font-size:9px;color:#888780;font-weight:400;">23% of revenue</span></span></div>
+                  <div class="addon-bar-track"><div class="addon-bar-fill" style="width:74%;background:#97C459;height:100%;border-radius:3px;"></div></div>
+                  <div class="addon-insight">74% attach · Customers w/ stand spend avg $38 more</div>
+                </div>
+                <div class="addon-intel-row">
+                  <div class="addon-name-row"><span class="addon-name">Lights</span><span class="addon-rev">$363 &nbsp;<span style="font-size:9px;color:#888780;font-weight:400;">22% of revenue</span></span></div>
+                  <div class="addon-bar-track"><div class="addon-bar-fill" style="width:58%;background:#5DCAA5;height:100%;border-radius:3px;"></div></div>
+                  <div class="addon-insight">58% attach · Customers w/ lights spend avg $42 more</div>
+                </div>
+                <div class="addon-intel-row">
+                  <div class="addon-name-row"><span class="addon-name">Delivery</span><span class="addon-rev" style="color:#A32D2D;">$95 &nbsp;<span style="font-size:9px;font-weight:400;">6% of revenue</span></span></div>
+                  <div class="addon-bar-track"><div class="addon-bar-fill" style="width:18%;background:#E24B4A;height:100%;border-radius:3px;"></div></div>
+                  <div class="addon-insight" style="color:#A32D2D;">&#9888; Only 18% today — avg is 32%. Opportunity: $140+</div>
+                </div>
+                <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid #f1efe8;display:flex;justify-content:space-between;">
+                  <div><div style="font-size:10px;color:#888780;">Total add-on rev</div><div style="font-size:16px;font-weight:500;color:#2C2C2A;margin-top:2px;">$846</div></div>
+                  <div style="text-align:right;"><div style="font-size:10px;color:#888780;">% of total</div><div style="font-size:16px;font-weight:500;color:#3B6D11;margin-top:2px;">24%</div></div>
+                </div>
+              </div>
+
+              <!-- Customer Intelligence -->
+              <div class="intel-card">
+                <div class="intel-title">Customer intelligence</div>
+                <div class="cust-split">
+                  <div class="cust-split-seg new-seg">
+                    <div class="cust-split-num">8</div>
+                    <div class="cust-split-lbl">New today</div>
+                  </div>
+                  <div class="cust-split-seg ret-seg">
+                    <div class="cust-split-num">13</div>
+                    <div class="cust-split-lbl">Returning</div>
+                  </div>
+                </div>
+                <div style="font-size:10px;color:#888780;margin-bottom:6px;">Top repeat customers — last 30 days</div>
+                <div class="top-cust-row">
+                  <span class="top-cust-name">Sarah Henderson</span>
+                  <span class="top-cust-stat">5 seasons · $185 avg</span>
+                </div>
+                <div class="top-cust-row">
+                  <span class="top-cust-name">Linda Pham</span>
+                  <span class="top-cust-stat">4 seasons · $160 avg</span>
+                </div>
+                <div class="top-cust-row">
+                  <span class="top-cust-name">Rafael Cruz</span>
+                  <span class="top-cust-stat">3 seasons · $145 avg</span>
+                </div>
+                <div class="top-cust-row">
+                  <span class="top-cust-name">Priya Menon</span>
+                  <span class="top-cust-stat">3 seasons · $130 avg</span>
+                </div>
+                <div class="insight-callout">Returning customers spend 25% more on average ($167 vs $134). 62% of today's revenue came from repeat visitors.</div>
+              </div>
+            </div>
+
+            <!-- ROW 5: Product breakdown + week table -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="intel-card">
+                <div class="intel-title">Revenue by tree type &amp; size</div>
+                <div style="font-size:10px;color:#888780;margin-bottom:6px;">By type</div>
+                <div class="dash-bar-row"><div class="dash-bar-lbl">Fraser Fir</div><div class="dash-bar-track"><div class="dash-bar-fill bf-gr" style="width:78%"><span class="dash-bar-val">$2,108</span></div></div></div>
+                <div class="dash-bar-row"><div class="dash-bar-lbl">Noble Fir</div><div class="dash-bar-track"><div class="dash-bar-fill bf-te" style="width:42%"><span class="dash-bar-val">$819</span></div></div></div>
+                <div class="dash-bar-row"><div class="dash-bar-lbl">Other</div><div class="dash-bar-track"><div class="dash-bar-fill bf-am" style="width:22%"><span class="dash-bar-val">$313</span></div></div></div>
+                <div style="font-size:10px;color:#888780;margin:9px 0 6px;">By size</div>
+                <div class="dash-bar-row"><div class="dash-bar-lbl">6–8ft</div><div class="dash-bar-track"><div class="dash-bar-fill bf-gr" style="width:72%"><span class="dash-bar-val">$1,740</span></div></div></div>
+                <div class="dash-bar-row"><div class="dash-bar-lbl">9–10ft</div><div class="dash-bar-track"><div class="dash-bar-fill bf-bl" style="width:48%"><span class="dash-bar-val">$960</span></div></div></div>
+                <div class="dash-bar-row"><div class="dash-bar-lbl">3–5ft</div><div class="dash-bar-track"><div class="dash-bar-fill bf-te" style="width:20%"><span class="dash-bar-val">$310</span></div></div></div>
+                <div class="dash-bar-row"><div class="dash-bar-lbl">10–12ft</div><div class="dash-bar-track"><div class="dash-bar-fill bf-am" style="width:12%"><span class="dash-bar-val">$230</span></div></div></div>
+              </div>
+
+              <div class="week-card">
+                <div class="intel-title">This week at a glance</div>
+                <table class="trend-tbl">
+                  <tr><th style="width:30%">Day</th><th>Txns</th><th>Revenue</th><th>AOV</th><th>Peak</th></tr>
+                  <tr><td>Mon Dec 9</td><td>14</td><td>$2,106</td><td>$150</td><td>2pm</td></tr>
+                  <tr><td>Tue Dec 10</td><td>11</td><td>$1,628</td><td>$148</td><td>1pm</td></tr>
+                  <tr><td>Wed Dec 11</td><td>16</td><td>$2,480</td><td>$155</td><td>11am</td></tr>
+                  <tr><td>Thu Dec 12</td><td>18</td><td>$2,718</td><td>$151</td><td>12pm</td></tr>
+                  <tr><td>Fri Dec 13</td><td>17</td><td>$2,820</td><td>$166</td><td>3pm</td></tr>
+                  <tr class="today-row"><td>Sat Dec 14 <span class="peak-badge">Today</span></td><td>21</td><td style="color:#3B6D11;">$3,510</td><td>$167</td><td>11am</td></tr>
+                </table>
+                <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid #f1efe8;display:flex;justify-content:space-between;">
+                  <div><div style="font-size:10px;color:#888780;">Week total</div><div style="font-size:15px;font-weight:500;color:#2C2C2A;margin-top:2px;">$15,262</div></div>
+                  <div style="text-align:right;"><div style="font-size:10px;color:#888780;">Best day</div><div style="font-size:15px;font-weight:500;color:#3B6D11;margin-top:2px;">Sat (+25%)</div></div>
+                  <div style="text-align:right;"><div style="font-size:10px;color:#888780;">Week AOV</div><div style="font-size:15px;font-weight:500;color:#2C2C2A;margin-top:2px;">$156</div></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+var customers=[
+  {id:0,name:'Sarah Henderson',initials:'SH',av:'ag',phone:'(214) 555-0182',seasons:5,since:2020,addr:'2841 Mockingbird Ln, Dallas, TX 75205',history:[{year:2024,item:'6–8ft Fraser Fir · Stand · Lights',c:true},{year:2023,item:'6–8ft Fraser Fir · Stand · Lights'},{year:2022,item:'6–8ft Fraser Fir · Stand'},{year:2021,item:'6–8ft Fraser Fir · Stand'}]},
+  {id:1,name:'Mike Hendricks',initials:'MH',av:'at',phone:'(972) 555-0341',seasons:2,since:2023,addr:'3302 Pecan Grove, Allen, TX 75002',history:[{year:2024,item:'9–10ft Noble Fir · Stand',c:true},{year:2023,item:'6–8ft Fraser Fir'}]},
+  {id:2,name:'Paula Henderson',initials:'PH',av:'aa',phone:'(469) 555-0917',seasons:1,since:2024,addr:'810 Clover Hill Rd, Plano, TX 75024',history:[{year:2024,item:'6–8ft Fraser Fir · Stand · Lights',c:true}]},
+  {id:3,name:'Linda Pham',initials:'LP',av:'ab',phone:'(214) 555-0293',seasons:4,since:2021,addr:'1104 Rosewood Ave, Richardson, TX 75080',history:[{year:2024,item:'6–8ft Fraser Fir · Lights',c:true},{year:2023,item:'6–8ft Fraser Fir · Lights'},{year:2022,item:'6–8ft Fraser Fir'},{year:2021,item:'6–8ft Fraser Fir · Stand'}]},
+  {id:4,name:'James Okafor',initials:'JO',av:'ap',phone:'(972) 555-0819',seasons:1,since:2024,addr:'519 Elm Creek Dr, Plano, TX 75093',history:[{year:2024,item:'9–10ft Noble Fir · Stand',c:true}]},
+  {id:5,name:'Priya Menon',initials:'PM',av:'ag',phone:'(469) 555-0441',seasons:3,since:2022,addr:'223 Creekside Ct, Garland, TX 75040',history:[{year:2024,item:'3–5ft Fraser Fir',c:true},{year:2023,item:'3–5ft Fraser Fir'},{year:2022,item:'6–8ft Fraser Fir · Stand'}]},
+  {id:6,name:'Tom Brecht',initials:'TB',av:'at',phone:'(214) 555-0628',seasons:2,since:2023,addr:'408 Westgate Blvd, Irving, TX 75038',history:[{year:2024,item:'9–10ft Douglas Fir · Stand · Lights',c:true},{year:2023,item:'9–10ft Douglas Fir · Stand'}]},
+  {id:7,name:'Rafael Cruz',initials:'RC',av:'aa',phone:'(972) 555-0173',seasons:3,since:2022,addr:'871 Sunflower Way, Mesquite, TX 75149',history:[{year:2024,item:'6–8ft Fraser Fir · Stand',c:true},{year:2023,item:'6–8ft Fraser Fir'},{year:2022,item:'6–8ft Fraser Fir'}]},
+];
+var deliveries=[
+  {num:1,name:'Sarah Henderson',addr:'2841 Mockingbird Ln, Dallas, TX 75205',window:'Morning (8am–12pm)',date:'2025-12-14',tree:'6–8ft Fraser Fir',stand:true,lights:true,install:false,notes:'Leave by side gate if no answer',driver:'Marcus D.',status:'delivered',zip:'75205',routeOrder:1,custPhone:'(214) 555-0182'},
+  {num:2,name:'James Okafor',addr:'519 Elm Creek Dr, Plano, TX 75093',window:'Morning (8am–12pm)',date:'2025-12-14',tree:'9–10ft Noble Fir',stand:true,lights:false,install:false,notes:'',driver:'Marcus D.',status:'delivered',zip:'75093',routeOrder:2,custPhone:'(972) 555-0819'},
+  {num:3,name:'Linda Pham',addr:'1104 Rosewood Ave, Richardson, TX 75080',window:'Afternoon (12pm–5pm)',date:'2025-12-14',tree:'6–8ft Fraser Fir',stand:false,lights:true,install:false,notes:'Dog in backyard — call ahead',driver:'Marcus D.',status:'out',zip:'75080',routeOrder:3,custPhone:'(214) 555-0293'},
+  {num:4,name:'Tom Brecht',addr:'408 Westgate Blvd, Irving, TX 75038',window:'Afternoon (12pm–5pm)',date:'2025-12-14',tree:'9–10ft Douglas Fir',stand:true,lights:true,install:true,notes:'Customer wants full setup including lights',driver:'Janelle R.',status:'out',zip:'75038',routeOrder:1,custPhone:'(214) 555-0628'},
+  {num:5,name:'Priya Menon',addr:'223 Creekside Ct, Garland, TX 75040',window:'Evening (5pm–8pm)',date:'2025-12-14',tree:'3–5ft Fraser Fir',stand:false,lights:false,install:false,notes:'',driver:'Janelle R.',status:'scheduled',zip:'75040',routeOrder:2,custPhone:'(469) 555-0441'},
+  {num:6,name:'Rafael Cruz',addr:'871 Sunflower Way, Mesquite, TX 75149',window:'Evening (5pm–8pm)',date:'2025-12-14',tree:'6–8ft Fraser Fir',stand:true,lights:false,install:false,notes:'Gate code: 4821',driver:null,status:'unassigned',zip:'75149',routeOrder:null,custPhone:'(972) 555-0173'},
+  {num:7,name:'Mike Hendricks',addr:'3302 Pecan Grove, Allen, TX 75002',window:'Afternoon (12pm–5pm)',date:'2025-12-14',tree:'9–10ft Noble Fir',stand:true,lights:false,install:false,notes:'',driver:null,status:'unassigned',zip:'75002',routeOrder:null,custPhone:'(972) 555-0341'},
+];
+
+function resetAll(){
+  document.getElementById('pform').style.display='none';
+  document.getElementById('new-cust-form').style.display='none';
+  document.getElementById('success-msg').style.display='none';
+  document.getElementById('no-sel').style.display='flex';
+  document.getElementById('search-inp').value='';
+  calcRaw='';cashRaw='';payMethod=null;
+  document.querySelectorAll('.pm-btn').forEach(b=>b.classList.remove('pm-sel'));
+  document.getElementById('cash-section').style.display='none';
+  document.getElementById('cash-display').textContent='—';
+  document.getElementById('change-val').textContent='—';
+  document.getElementById('change-val').style.color='#3B6D11';
+  updateCalcDisplay();renderCustomers('');resetOrderState();
+}
+function resetOrderState(){
+  state={tree:null,treeName:null,size:null,sizeLabel:null,stand:false,lights:false,delivery:false,otherSub:null};
+  document.querySelectorAll('.tbtn,.sbtn,.obtn').forEach(b=>b.classList.remove('sel'));
+  document.querySelectorAll('.tog').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.cbb').forEach(b=>b.classList.remove('ac'));
+  document.getElementById('other-picker').style.display='none';
+  document.getElementById('other-text').value='';
+  document.getElementById('deliv-fields').style.display='none';
+  document.getElementById('deliv-addr').value='';
+  document.getElementById('deliv-date').value='';
+  document.getElementById('deliv-window').value='';
+}
+function switchScreen(s){
+  document.querySelectorAll('.screen').forEach(sc=>sc.classList.remove('active'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+s).classList.add('active');
+  document.getElementById('sb-'+s).classList.add('active');
+}
+
+var state={tree:null,treeName:null,size:null,sizeLabel:null,stand:false,lights:false,delivery:false,otherSub:null};
+var selectedCust=null,selectedDeliv=null;
+var calcRaw='',cashRaw='',payMethod=null;
+
+var TAX_RATE=0.0825;
+// ---- CALC ----
+function getSubtotal(){return calcRaw===''?0:parseInt(calcRaw,10);}
+function getTax(){return Math.round(getSubtotal()*TAX_RATE*100)/100;}
+function getTotal(){return Math.round((getSubtotal()+getTax())*100)/100;}
+function fmt(n){return '$'+n.toFixed(2);}
+function calcStr(){return fmt(getTotal());}
+function updateCalcDisplay(){
+  var sub=getSubtotal(),tax=getTax(),total=getTotal();
+  document.getElementById('display-subtotal').textContent=fmt(sub);
+  document.getElementById('display-tax').textContent=fmt(tax);
+  document.getElementById('calc-display').textContent=fmt(total);
+  updateChange();updateCompBtn();
+}
+function numpad(k){
+  if(k==='clr'){calcRaw='';}
+  else if(k==='del'){calcRaw=calcRaw.slice(0,-1);}
+  else{if(calcRaw.length>=5)return;calcRaw+=k;}
+  updateCalcDisplay();
+}
+function setPrice(v){calcRaw=String(v);updateCalcDisplay();}
+
+// ---- CASH NUMPAD ----
+function cashNumpad(k){
+  if(k==='clr'){cashRaw='';}
+  else if(k==='del'){cashRaw=cashRaw.slice(0,-1);}
+  else{if(cashRaw.length>=5)return;cashRaw+=k;}
+  var disp=document.getElementById('cash-display');
+  disp.textContent=cashRaw===''?'—':'$'+parseInt(cashRaw,10);
+  renderCashPresets();updateChange();updateCompBtn();
+}
+function setCash(v){cashRaw=String(v);document.getElementById('cash-display').textContent='$'+v;renderCashPresets();updateChange();updateCompBtn();}
+function getCashVal(){return cashRaw===''?0:parseInt(cashRaw,10);}
+
+function renderCashPresets(){
+  var total=calcRaw===''?0:parseInt(calcRaw,10);
+  var cur=getCashVal();
+  var amounts=[20,50,100,150,200,300];
+  var html=amounts.map(a=>'<button class="cash-btn'+(cur===a?' ca':'')+'" onclick="setCash('+a+')">$'+a+'</button>').join('');
+  if(total>300&&!amounts.includes(total))html+='<button class="cash-btn'+(cur===total?' ca':'')+'" onclick="setCash('+total+')">Exact ($'+total+')</button>';
+  document.getElementById('cash-presets').innerHTML=html;
+}
+
+function updateChange(){
+  var total=getTotal();
+  var cash=getCashVal();
+  if(payMethod==='cash'&&cash>0&&total>0){
+    var change=Math.round((cash-total)*100)/100;
+    document.getElementById('change-val').textContent=change>=0?('$'+change.toFixed(2)):('Short $'+Math.abs(change).toFixed(2));
+    document.getElementById('change-val').style.color=change>=0?'#3B6D11':'#A32D2D';
+  } else {
+    document.getElementById('change-val').textContent='—';
+    document.getElementById('change-val').style.color='#3B6D11';
+  }
+}
+
+function selPayment(m){
+  payMethod=m;
+  document.querySelectorAll('.pm-btn').forEach(b=>b.classList.remove('pm-sel'));
+  document.getElementById('pm-'+m).classList.add('pm-sel');
+  var cs=document.getElementById('cash-section');
+  cs.style.display=(m==='cash')?'block':'none';
+  if(m==='cash')renderCashPresets();
+  updateCompBtn();
+}
+
+function updateCompBtn(){
+  var hasTotal=calcRaw!==''&&parseInt(calcRaw,10)>0;
+  var hasPay=payMethod&&(payMethod!=='cash'||(payMethod==='cash'&&getCashVal()>0));
+  var hasCust=selectedCust!==null;
+  document.getElementById('comp-btn').disabled=!(hasTotal&&hasPay&&hasCust);
+}
+
+// ---- TREE / SIZE / ADDONS ----
+function selTree(t,n){
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('t-'+t).classList.add('sel');
+  state.tree=t;state.treeName=n;state.otherSub=null;
+  document.getElementById('other-picker').style.display=(t==='other')?'block':'none';
+  if(t!=='other')document.getElementById('other-text').value='';
+  document.querySelectorAll('.obtn').forEach(b=>b.classList.remove('sel'));
+  clearCombos();
+}
+function selOther(name,key){
+  document.querySelectorAll('.obtn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('o-'+key).classList.add('sel');
+  state.treeName=name;state.otherSub=key;
+  document.getElementById('other-text').value='';
+}
+function setCustomTree(v){
+  if(v.trim()){state.treeName=v.trim();state.otherSub=null;document.querySelectorAll('.obtn').forEach(b=>b.classList.remove('sel'));}
+}
+function selSize(idx,label){
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('sz-'+idx).classList.add('sel');
+  state.size=idx;state.sizeLabel=label;clearCombos();
+}
+function togAddon(a){
+  state[a]=!state[a];
+  document.getElementById('tog-'+a).classList.toggle('on',state[a]);
+  clearCombos();
+}
+function togDelivery(){
+  state.delivery=!state.delivery;
+  document.getElementById('tog-delivery').classList.toggle('on',state.delivery);
+  document.getElementById('deliv-fields').style.display=state.delivery?'flex':'none';
+  if(state.delivery&&selectedCust&&selectedCust.addr){
+    document.getElementById('deliv-addr').value=selectedCust.addr;
+  }
+  clearCombos();
+}
+function useDefaultAddress(){
+  if(selectedCust&&selectedCust.addr){
+    document.getElementById('deliv-addr').value=selectedCust.addr;
+  }
+}
+
+function clearCombos(){document.querySelectorAll('.cbb').forEach(b=>b.classList.remove('ac'));}
+var combos=[
+  {tree:'fraser',treeName:'Fraser Fir',size:1,sizeLabel:'6–8ft',stand:true,lights:true,delivery:false},
+  {tree:'fraser',treeName:'Fraser Fir',size:1,sizeLabel:'6–8ft',stand:true,lights:false,delivery:false},
+  {tree:'noble',treeName:'Noble Fir',size:2,sizeLabel:'9–10ft',stand:true,lights:false,delivery:false},
+  {tree:'fraser',treeName:'Fraser Fir',size:1,sizeLabel:'6–8ft',stand:false,lights:false,delivery:false},
+];
+function applyCombo(n){
+  var c=combos[n];clearCombos();
+  document.querySelectorAll('.cbb')[n].classList.add('ac');
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('t-'+c.tree).classList.add('sel');
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('sz-'+c.size).classList.add('sel');
+  state.tree=c.tree;state.treeName=c.treeName;state.size=c.size;state.sizeLabel=c.sizeLabel;
+  state.stand=c.stand;state.lights=c.lights;state.delivery=c.delivery;state.otherSub=null;
+  document.getElementById('other-picker').style.display='none';
+  document.getElementById('tog-stand').classList.toggle('on',c.stand);
+  document.getElementById('tog-lights').classList.toggle('on',c.lights);
+  document.getElementById('tog-delivery').classList.toggle('on',c.delivery);
+  document.getElementById('deliv-fields').style.display=c.delivery?'flex':'none';
+}
+
+// ---- CUSTOMERS ----
+function renderCustomers(filter){
+  var list=document.getElementById('cust-list');
+  var filtered=filter?customers.filter(c=>c.name.toLowerCase().includes(filter.toLowerCase())||c.phone.includes(filter)):customers;
+  list.innerHTML=filtered.map(c=>'<div class="cr'+(selectedCust&&selectedCust.id===c.id?' sc':'')+'" onclick="selectCustomer('+c.id+')"><div class="av '+c.av+'">'+c.initials+'</div><div style="flex:1"><div class="cn">'+c.name+'</div><div class="cs">'+c.phone+' · '+c.seasons+' season'+(c.seasons>1?'s':'')+'</div></div>'+(c.seasons>1?'<div class="rb">'+c.seasons+' yrs</div>':'')+'</div>').join('');
+}
+function filterCustomers(v){renderCustomers(v);}
+
+function selectCustomer(id){
+  selectedCust=customers.find(c=>c.id===id);
+  renderCustomers(document.getElementById('search-inp').value);
+  document.getElementById('no-sel').style.display='none';
+  document.getElementById('new-cust-form').style.display='none';
+  document.getElementById('pform').style.display='flex';
+  document.getElementById('success-msg').style.display='none';
+  document.getElementById('p-av').textContent=selectedCust.initials;
+  document.getElementById('p-av').className='pav '+selectedCust.av;
+  document.getElementById('p-name').textContent=selectedCust.name;
+  document.getElementById('p-since').textContent=selectedCust.phone+' · customer since '+selectedCust.since;
+  var badge=document.getElementById('p-badge');
+  badge.textContent=selectedCust.seasons+' season'+(selectedCust.seasons>1?'s':'');
+  badge.style.display=selectedCust.seasons>1?'':'none';
+  document.getElementById('hist-strip').innerHTML=selectedCust.history.map(h=>'<div class="hp'+(h.c?' cy':'')+'"><div class="hy">'+h.year+'</div><div class="hi">'+h.item+'</div></div>').join('');
+  resetOrderState();updateCompBtn();
+}
+
+// ---- NEW CUSTOMER FLOW ----
+function openNewCustomer(){
+  selectedCust=null;
+  document.getElementById('no-sel').style.display='none';
+  document.getElementById('pform').style.display='none';
+  document.getElementById('success-msg').style.display='none';
+  document.getElementById('new-cust-form').style.display='flex';
+  document.getElementById('nc-first').value='';
+  document.getElementById('nc-last').value='';
+  document.getElementById('nc-phone').value='';
+  document.getElementById('nc-email').value='';
+  document.getElementById('nc-addr').value='';
+  renderCustomers(document.getElementById('search-inp').value);
+  updateCompBtn();
+}
+function saveNewCustomer(){
+  var first=document.getElementById('nc-first').value.trim();
+  var last=document.getElementById('nc-last').value.trim();
+  var phone=document.getElementById('nc-phone').value.trim();
+  var email=document.getElementById('nc-email').value.trim();
+  var addr=document.getElementById('nc-addr').value.trim();
+  if(!first||!last||!phone){alert('Please enter first name, last name, and phone number.');return;}
+  var newId=customers.length;
+  var initials=(first[0]+(last[0]||'')).toUpperCase();
+  var avs=['ag','at','aa','ab','ap'];
+  var newCust={id:newId,name:first+' '+last,initials:initials,av:avs[newId%5],phone:phone,email:email,addr:addr,seasons:0,since:2025,history:[]};
+  customers.push(newCust);
+  renderCustomers('');
+  selectCustomer(newId);
+}
+
+// ---- COMPLETE / RESET ----
+function completeSale(){
+  var name=selectedCust?selectedCust.name:'Customer';
+  var tree=(state.treeName||'Tree')+(state.sizeLabel?' · '+state.sizeLabel:'');
+  var addons=[state.stand&&'Stand',state.lights&&'Lights',state.delivery&&'Delivery'].filter(Boolean).join(' · ');
+  var method=payMethod?payMethod.charAt(0).toUpperCase()+payMethod.slice(1):'';
+  var detail=name+' · '+tree+(addons?' · '+addons:'')+' · '+calcStr()+' · '+method;
+
+  if(state.delivery){
+    var addr=document.getElementById('deliv-addr').value.trim()||'Address not set';
+    var date=document.getElementById('deliv-date').value||'Date TBD';
+    var win=document.getElementById('deliv-window').value||'Anytime';
+    var notes=document.querySelector('.ni')?document.querySelector('.ni').value.trim():'';
+    var nextNum=deliveries.length>0?Math.max.apply(null,deliveries.map(d=>d.num))+1:1;
+    var zip=addr.match(/\b7[0-9]{4}\b/);
+    deliveries.push({
+      num:nextNum,name:name,addr:addr,
+      window:win,date:date,tree:tree,
+      stand:state.stand,lights:state.lights,install:false,
+      notes:notes,driver:null,status:'unassigned',
+      zip:zip?zip[0]:'75000',routeOrder:null,
+      custPhone:selectedCust?selectedCust.phone:''
+    });
+    renderDispatcher();
+    updateOpsStrip();
+  }
+
+  document.getElementById('pform').style.display='none';
+  document.getElementById('new-cust-form').style.display='none';
+  document.getElementById('success-detail').textContent=detail;
+  var successMsg=document.getElementById('success-msg');
+  successMsg.style.display='flex';
+  if(state.delivery){
+    document.getElementById('delivery-link-btn').style.display='inline-block';
+  } else {
+    document.getElementById('delivery-link-btn').style.display='none';
+  }
+  selectedCust=null;renderCustomers('');
+}
+
+// ===== DISPATCHER SYSTEM v7 =====
+var dqFilter='all';
+var driverTab='all';
+var dispView='list';
+var selectedDelivNum=null;
+var dragSrcNum=null;
+var driverColors={marcus:'#639922',janelle:'#185FA5',unassigned:'#E24B4A'};
+
+var DRIVERS=[
+  {key:'marcus',name:'Marcus D.',color:'#639922'},
+  {key:'janelle',name:'Janelle R.',color:'#185FA5'},
+];
+
+function driverColor(d){
+  if(!d)return'#E24B4A';
+  if(d.toLowerCase().includes('marcus'))return'#639922';
+  if(d.toLowerCase().includes('janelle'))return'#185FA5';
+  return'#888780';
+}
+function winClass(w){
+  if(!w)return'';
+  if(w.toLowerCase().includes('morning'))return'win-morning';
+  if(w.toLowerCase().includes('afternoon'))return'win-afternoon';
+  if(w.toLowerCase().includes('evening'))return'win-evening';
+  return'';
+}
+function statusDotClass(s){
+  return{unassigned:'dot-unassigned',assigned:'dot-assigned',out:'dot-out',delivered:'dot-delivered',failed:'dot-failed'}[s]||'dot-unassigned';
+}
+function statusPillClass(s){
+  return{unassigned:'s-un',scheduled:'s-sc',out:'s-ou',delivered:'s-do',failed:'s-fa'}[s]||'s-un';
+}
+function statusLabel(s){
+  return{unassigned:'Unassigned',scheduled:'Scheduled',out:'Out for delivery',delivered:'Delivered',failed:'Failed'}[s]||s;
+}
+
+function updateOpsStrip(){
+  var total=deliveries.length;
+  var unassigned=deliveries.filter(d=>!d.driver||d.status==='unassigned').length;
+  var out=deliveries.filter(d=>d.status==='out').length;
+  var done=deliveries.filter(d=>d.status==='delivered').length;
+  var e=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v;};
+  e('ops-total',total);e('ops-unassigned',unassigned);e('ops-out',out);e('ops-done',done);
+  // keep backward compat with old id if it still exists
+  var old=document.getElementById('deliv-stat-row');
+  if(old)old.style.display='none';
+}
+
+// ── QUEUE (LEFT PANEL) ────────────────────────────────────────────────────────
+function setDQFilter(f){
+  dqFilter=f;
+  ['all','unassigned','out','delivered'].forEach(k=>{
+    var el=document.getElementById('dqf-'+k);if(el)el.classList.toggle('fa',k===f);
+  });
+  renderQueue();
+}
+
+function renderQueue(){
+  var list=document.getElementById('dq-list');if(!list)return;
+  var filtered=deliveries.filter(d=>{
+    if(dqFilter==='all')return true;
+    if(dqFilter==='unassigned')return d.status==='unassigned'||!d.driver;
+    if(dqFilter==='out')return d.status==='out';
+    if(dqFilter==='delivered')return d.status==='delivered';
+    return true;
+  });
+  if(!filtered.length){list.innerHTML='<div style="padding:2rem;text-align:center;font-size:12px;color:#888780;">No deliveries match this filter</div>';return;}
+  // group by window
+  var groups={Morning:[],Afternoon:[],Evening:[],Anytime:[]};
+  filtered.forEach(d=>{
+    var w=d.window||'Anytime';
+    var key=Object.keys(groups).find(k=>w.toLowerCase().includes(k.toLowerCase()))||'Anytime';
+    groups[key].push(d);
+  });
+  var html='';
+  Object.entries(groups).forEach(([win,items])=>{
+    if(!items.length)return;
+    html+='<div class="win-group-hdr"><div class="win-group-lbl">'+win+' ('+items.length+')</div></div>';
+    items.forEach(d=>{
+      var routed=d.routeOrder!==null&&d.routeOrder!==undefined;
+      html+='<div class="dq-card'+(selectedDelivNum===d.num?' sel-d':'')+'" onclick="selectDelivery('+d.num+')">'
+        +'<div class="dq-stop-num'+(routed?'':' unrouted')+'">'+(routed?d.routeOrder:'–')+'</div>'
+        +'<div class="dq-info">'
+          +'<div class="dq-name">'+d.name+'</div>'
+          +'<div class="dq-addr">'+d.addr+'</div>'
+          +'<div class="dq-tree">'+d.tree+'</div>'
+          +'<div class="dq-tags">'
+            +(d.stand?'<span class="dq-tag tag-stand">Stand</span>':'' )
+            +(d.lights?'<span class="dq-tag tag-lights">Lights</span>':'')
+            +(d.install?'<span class="dq-tag tag-install">Install</span>':'')
+          +'</div>'
+        +'</div>'
+        +'<div class="dq-status-dot '+statusDotClass(d.status)+'"></div>'
+      +'</div>';
+    });
+  });
+  list.innerHTML=html;
+}
+
+// ── ROUTE BOARD (CENTER PANEL) ────────────────────────────────────────────────
+function setDriverTab(t){
+  driverTab=t;
+  ['all','marcus','janelle'].forEach(k=>{
+    var el=document.getElementById('dtab-'+k);if(el)el.classList.toggle('active',k===t);
+  });
+  renderRouteBoard();
+}
+
+function renderRouteBoard(){
+  var board=document.getElementById('route-board');if(!board)return;
+  var filtered=deliveries.filter(d=>{
+    if(driverTab==='all')return true;
+    if(driverTab==='marcus')return d.driver&&d.driver.toLowerCase().includes('marcus');
+    if(driverTab==='janelle')return d.driver&&d.driver.toLowerCase().includes('janelle');
+    return true;
+  });
+  // sort: routed first by order, then unrouted alphabetically
+  var routed=filtered.filter(d=>d.routeOrder!==null&&d.routeOrder!==undefined).sort((a,b)=>a.routeOrder-b.routeOrder);
+  var unrouted=filtered.filter(d=>d.routeOrder===null||d.routeOrder===undefined);
+  var items=[...routed,...unrouted];
+  if(!items.length){
+    board.innerHTML='<div class="route-empty"><svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect x="5" y="10" width="30" height="22" rx="2" stroke="#d3d1c7" stroke-width="1.5"/><path d="M12 18h16M12 24h10" stroke="#d3d1c7" stroke-width="1.5" stroke-linecap="round"/></svg><div class="route-empty-title">No stops for this driver</div><div class="route-empty-sub">Assign deliveries to this driver using the detail panel</div></div>';
+    return;
+  }
+  board.innerHTML=items.map((d,idx)=>{
+    var dc=driverColor(d.driver);
+    var isOut=d.status==='out';
+    var isDone=d.status==='delivered';
+    var isFailed=d.status==='failed';
+    var winCls=winClass(d.window);
+    return '<div class="route-stop'+(isDone?' delivered-stop':'')+(isOut?' out-stop':'')+'" draggable="true" id="rs-'+d.num+'" ondragstart="dragStart(event,'+d.num+')" ondragover="dragOver(event,'+d.num+')" ondrop="dropStop(event,'+d.num+')" ondragleave="dragLeave(event)" onclick="selectDelivery('+d.num+')">'
+      +'<span class="rs-drag">&#8597;</span>'
+      +'<div class="rs-num" style="background:'+dc+';">'+(d.routeOrder!==null&&d.routeOrder!==undefined?d.routeOrder:'?')+'</div>'
+      +'<div class="rs-info">'
+        +'<div class="rs-name">'+d.name+(isOut?' <span style="font-size:9px;color:#5DCAA5;">● en route</span>':'')+(isDone?' <span style="font-size:9px;color:#639922;">✓ done</span>':'')+'</div>'
+        +'<div class="rs-addr">'+d.addr+'</div>'
+        +'<div class="rs-detail">'+d.tree+(d.stand?' · Stand':'')+(d.lights?' · Lights':'')+(d.install?' · Install':'')+'</div>'
+      +'</div>'
+      +(winCls?'<span class="rs-win '+winCls+'">'+(d.window||'').split(' ')[0]+'</span>':'')
+      +'<div class="rs-actions" onclick="event.stopPropagation()">'
+        +(isDone?'<span style="font-size:10px;color:#639922;">Done</span>':'<button class="rs-act" onclick="markRouteStopDelivered('+d.num+')">Delivered</button>')
+        +'<button class="rs-act danger" onclick="markRouteStopFailed('+d.num+')">&#9888;</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+
+// ── DRAG-AND-DROP ROUTE ORDERING ──────────────────────────────────────────────
+function dragStart(e,num){dragSrcNum=num;e.dataTransfer.effectAllowed='move';}
+function dragOver(e,num){e.preventDefault();if(num!==dragSrcNum){document.getElementById('rs-'+num)?.classList.add('drag-over');}return false;}
+function dragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function dropStop(e,targetNum){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(dragSrcNum===targetNum)return;
+  var src=deliveries.find(d=>d.num===dragSrcNum);
+  var tgt=deliveries.find(d=>d.num===targetNum);
+  if(!src||!tgt)return;
+  // swap route orders
+  var tmp=src.routeOrder;src.routeOrder=tgt.routeOrder;tgt.routeOrder=tmp;
+  dragSrcNum=null;
+  renderRouteBoard();renderQueue();
+}
+
+// ── DETAIL PANEL (RIGHT) ──────────────────────────────────────────────────────
+function selectDelivery(num){
+  selectedDelivNum=num;
+  renderQueue();renderRouteBoard();
+  var d=deliveries.find(x=>x.num===num);if(!d)return;
+  var panel=document.getElementById('det-panel');if(!panel)return;
+  var sc=statusPillClass(d.status);
+  panel.innerHTML=
+    '<div class="det-hdr">'
+      +'<div class="det-title">'+d.name+'</div>'
+      +'<div class="det-sub">Stop #'+d.num+' &nbsp;&middot;&nbsp; <span class="sp '+sc+'">'+statusLabel(d.status)+'</span></div>'
+    +'</div>'
+    +'<div class="det-scroll">'
+      +'<div class="det-section">'
+        +'<div class="det-sect-lbl">Delivery details</div>'
+        +'<div class="det-row"><span class="dlbl">Address</span><span class="dval">'+d.addr+'</span></div>'
+        +'<div class="det-row"><span class="dlbl">Date</span><span class="dval">'+(d.date||'TBD')+'</span></div>'
+        +'<div class="det-row"><span class="dlbl">Window</span><span class="dval">'+(d.window||'Anytime')+'</span></div>'
+        +'<div class="det-row"><span class="dlbl">Phone</span><span class="dval" style="color:#185FA5;">'+(d.custPhone||'—')+'</span></div>'
+      +'</div>'
+      +'<div class="det-section">'
+        +'<div class="det-sect-lbl">Order</div>'
+        +'<div class="det-row"><span class="dlbl">Tree</span><span class="dval">'+d.tree+'</span></div>'
+        +'<div class="det-row"><span class="dlbl">Stand</span><span class="dval" style="color:'+(d.stand?'#3B6D11':'#888780')+';">'+(d.stand?'Yes':'No')+'</span></div>'
+        +'<div class="det-row"><span class="dlbl">Lights</span><span class="dval" style="color:'+(d.lights?'#3B6D11':'#888780')+';">'+(d.lights?'Yes':'No')+'</span></div>'
+        +'<div class="det-row"><span class="dlbl">Install</span><span class="dval" style="color:'+(d.install?'#3B6D11':'#888780')+';">'+(d.install?'Yes':'No')+'</span></div>'
+      +'</div>'
+      +'<div class="det-section">'
+        +'<div class="det-sect-lbl">Assign driver</div>'
+        +'<select class="driver-select" onchange="assignDriver('+d.num+',this.value)">'
+          +'<option value="">Unassigned</option>'
+          +'<option value="Marcus D."'+(d.driver==='Marcus D.'?' selected':'')+' style="color:#3B6D11;">Marcus D.</option>'
+          +'<option value="Janelle R."'+(d.driver==='Janelle R.'?' selected':'')+' style="color:#185FA5;">Janelle R.</option>'
+        +'</select>'
+        +'<div class="det-row"><span class="dlbl">Route order</span><span class="dval">'+(d.routeOrder!==null&&d.routeOrder!==undefined?'Stop #'+d.routeOrder:'Not routed')+'</span></div>'
+      +'</div>'
+      +(d.notes?'<div class="det-section"><div class="det-sect-lbl">Notes</div><div class="det-notes-box">'+d.notes+'</div></div>':'')
+    +'</div>'
+    +'<div class="det-actions">'
+      +(d.status!=='delivered'?'<button class="det-act primary" onclick="markDelivered('+d.num+')">Mark as delivered</button>':'<div style="font-size:11px;color:#3B6D11;text-align:center;padding:4px;">Delivery complete</div>')
+      +(d.status==='unassigned'||d.status==='scheduled'?'<button class="det-act warn-act" onclick="markOutForDelivery('+d.num+')">Mark out for delivery</button>':'')
+      +'<button class="det-act danger-act" onclick="markFailed('+d.num+')">Report issue / failed</button>'
+      +'<button class="det-act" onclick="openGoogleMaps(\''+d.addr.replace(/'/g,"\\'")+'\')" style="color:#0C447C;background:#E6F1FB;border-color:#85B7EB;">&#128205; Navigate</button>'
+    +'</div>';
+}
+
+function assignDriver(num,driver){
+  var d=deliveries.find(x=>x.num===num);if(!d)return;
+  d.driver=driver||null;
+  if(driver&&d.status==='unassigned')d.status='scheduled';
+  if(!driver)d.status='unassigned';
+  // auto-assign route order if unset
+  if(driver&&(d.routeOrder===null||d.routeOrder===undefined)){
+    var driverStops=deliveries.filter(x=>x.driver===driver&&x.routeOrder!==null&&x.routeOrder!==undefined);
+    d.routeOrder=driverStops.length+1;
+  }
+  renderDispatcher();updateOpsStrip();
+  selectDelivery(num); // refresh detail panel
+}
+
+function markDelivered(num){
+  var d=deliveries.find(x=>x.num===num);if(!d)return;
+  d.status='delivered';
+  renderDispatcher();updateOpsStrip();selectDelivery(num);
+}
+function markOutForDelivery(num){
+  var d=deliveries.find(x=>x.num===num);if(!d)return;
+  d.status='out';
+  renderDispatcher();updateOpsStrip();selectDelivery(num);
+}
+function markFailed(num){
+  var d=deliveries.find(x=>x.num===num);if(!d)return;
+  if(confirm('Mark stop #'+d.num+' as failed? The delivery will need to be rescheduled.')){
+    d.status='failed';
+    renderDispatcher();updateOpsStrip();selectDelivery(num);
+  }
+}
+function markRouteStopDelivered(num){markDelivered(num);}
+function markRouteStopFailed(num){markFailed(num);}
+
+function openGoogleMaps(addr){
+  var url='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(addr);
+  window.open(url,'_blank');
+}
+
+// ── AUTO-GROUP ────────────────────────────────────────────────────────────────
+function autoGroupByZip(){
+  // Cluster into two driver groups by ZIP parity (simple MVP heuristic)
+  var unassigned=deliveries.filter(d=>!d.driver);
+  var zip75000=unassigned.filter(d=>(parseInt(d.zip||0)%2)===0);
+  var zip75001=unassigned.filter(d=>(parseInt(d.zip||0)%2)===1);
+  var order1=1,order2=1;
+  zip75000.forEach(d=>{d.driver='Marcus D.';d.status='scheduled';d.routeOrder=order1++;});
+  zip75001.forEach(d=>{d.driver='Janelle R.';d.status='scheduled';d.routeOrder=order2++;});
+  renderDispatcher();updateOpsStrip();
+  alert('Auto-grouped '+unassigned.length+' deliveries by area. Review and adjust route order by dragging stops.');
+}
+
+function groupByWindow(){
+  // Sort within each driver's route by time window
+  DRIVERS.forEach(drv=>{
+    var stops=deliveries.filter(d=>d.driver===drv.name);
+    var order=['morning','afternoon','evening','anytime'];
+    stops.sort((a,b)=>{
+      var ai=order.findIndex(o=>(a.window||'').toLowerCase().includes(o));
+      var bi=order.findIndex(o=>(b.window||'').toLowerCase().includes(o));
+      return (ai<0?99:ai)-(bi<0?99:bi);
+    });
+    stops.forEach((d,i)=>d.routeOrder=i+1);
+  });
+  renderDispatcher();
+}
+
+function optimizeRoute(){
+  alert('Route optimization requires the Mapbox Directions API.\n\nIn production: send all stop coordinates to POST /api/deliveries/optimize-route\nMapbox returns the optimal waypoint order, which is written back to routeOrder on each delivery.\n\nFor MVP: use the drag-and-drop ordering and "Group by window" button.');
+}
+
+// ── VIEW HELPERS ──────────────────────────────────────────────────────────────
+function setDispView(v){
+  dispView=v;
+  ['list','driver'].forEach(k=>document.getElementById('view-'+k)?.classList.toggle('active',k===v));
+  renderDispatcher();
+}
+
+function renderDispatcher(){
+  renderQueue();
+  renderRouteBoard();
+}
+
+// ── DRIVER MODE ───────────────────────────────────────────────────────────────
+var driverModeDriver=null;
+
+function openDriverMode(driverName,driverKey){
+  driverModeDriver=driverName;
+  document.getElementById('driver-overlay').classList.add('show');
+  document.getElementById('driver-overlay-name').textContent=driverName+' — Route';
+  renderDriverStops(driverName);
+}
+function closeDriverMode(){
+  document.getElementById('driver-overlay').classList.remove('show');
+  driverModeDriver=null;
+}
+function renderDriverStops(driverName){
+  var myStops=deliveries.filter(d=>d.driver===driverName).sort((a,b)=>(a.routeOrder||99)-(b.routeOrder||99));
+  var done=myStops.filter(d=>d.status==='delivered').length;
+  var remain=myStops.filter(d=>d.status!=='delivered').length;
+  var e=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v;};
+  e('dv-done',done);e('dv-remain',remain);e('dv-total',myStops.length);
+  var dc=driverColor(driverName);
+  if(!myStops.length){
+    document.getElementById('driver-stop-list').innerHTML='<div style="padding:2rem;text-align:center;font-size:13px;color:#888780;">No stops assigned yet</div>';
+    return;
+  }
+  document.getElementById('driver-stop-list').innerHTML=myStops.map((d,i)=>{
+    var isDone=d.status==='delivered';
+    var isOut=d.status==='out';
+    var isCurrent=!isDone&&(isOut||(myStops.findIndex(x=>x.status!=='delivered')===i));
+    return '<div class="driver-stop'+(isCurrent?' current-stop':'')+(isDone?' done-stop':'')+'">'
+      +'<div class="ds-header">'
+        +'<div class="ds-num" style="background:'+dc+';">'+(d.routeOrder||'?')+'</div>'
+        +'<div class="ds-cust">'
+          +'<div class="ds-name">'+d.name+'</div>'
+          +'<div class="ds-win">'+(d.window||'Anytime')+'</div>'
+        +'</div>'
+        +'<span class="ds-status-badge sp '+statusPillClass(d.status)+'">'+statusLabel(d.status)+'</span>'
+      +'</div>'
+      +'<div class="ds-body">'
+        +'<div class="ds-addr">'+d.addr+'</div>'
+        +'<div class="ds-detail-row"><strong>Tree:</strong> '+d.tree+'</div>'
+        +(d.stand?'<div class="ds-detail-row"><strong>Stand:</strong> Yes — set up required</div>':'')
+        +(d.lights?'<div class="ds-detail-row"><strong>Lights:</strong> Yes — include in delivery</div>':'')
+        +(d.install?'<div class="ds-detail-row" style="color:#0C447C;"><strong>Install:</strong> Customer wants full setup</div>':'')
+        +(d.notes?'<div class="ds-notes">'+d.notes+'</div>':'')
+      +'</div>'
+      +'<div class="ds-actions">'
+        +'<button class="dsa-btn dsa-nav" onclick="openGoogleMaps(\''+d.addr.replace(/'/g,"\\'")+'\')">Navigate</button>'
+        +'<button class="dsa-btn dsa-delivered" onclick="driverMarkDelivered('+d.num+')"'+(isDone?' disabled':'')+'>'+( isDone?'Delivered':'Mark delivered')+'</button>'
+        +'<button class="dsa-btn dsa-issue" onclick="driverReportIssue('+d.num+')">Issue</button>'
+      +'</div>'
+      +(document.getElementById('issue-'+d.num)?'':'<div id="issue-'+d.num+'" style="display:none;" class="issue-form"><select><option>Wrong address</option><option>Not home</option><option>Cancelled</option><option>Other</option></select><textarea placeholder="Add notes..."></textarea><button class="issue-submit" onclick="submitIssue('+d.num+')">Submit issue</button></div>')
+    +'</div>';
+  }).join('');
+}
+function driverMarkDelivered(num){
+  markDelivered(num);
+  if(driverModeDriver)renderDriverStops(driverModeDriver);
+}
+function driverReportIssue(num){
+  var el=document.getElementById('issue-'+num);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+function submitIssue(num){
+  markFailed(num);
+  if(driverModeDriver)renderDriverStops(driverModeDriver);
+}
+function markRouteStarted(){
+  if(!driverModeDriver)return;
+  deliveries.filter(d=>d.driver===driverModeDriver&&d.status==='scheduled').forEach(d=>d.status='out');
+  updateOpsStrip();renderDispatcher();
+  if(driverModeDriver)renderDriverStops(driverModeDriver);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function renderDeliveries(){renderDispatcher();} // backward compat with completeSale callers
+function updateDeliveryStats(){updateOpsStrip();}  // backward compat
+
+renderCustomers();
+renderDispatcher();
+updateOpsStrip();
+updateCalcDisplay();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ===== SALES COMMAND CENTER v6 =====
+// All data is simulated but structured exactly as it would come from real API endpoints.
+// In production: replace each data block with a fetch() to your tRPC/REST endpoint.
+
+var salesFilter='today';
+var chartMode='revenue';
+var hourlyChartInst=null;
+var chartsReady=false;
+
+// ── DATA STRUCTURES ──────────────────────────────────────────────────────────
+// In production these come from:
+//   GET /api/sales/hourly?date=today          → hourlyRevToday, hourlyTxnToday
+//   GET /api/sales/hourly?date=yesterday      → hourlyRevYest
+//   GET /api/sales/hourly?date=last-saturday  → hourlyRevLastSat
+
+// 24-element arrays indexed by hour (0=midnight … 23=11pm)
+// Business hours are 8am(8)–7pm(19)
+var hourlyRevToday=    [0,0,0,0,0,0,0,0,180,340,520,620,490,380,440,520,570,370,290,210,0,0,0,0];
+var hourlyRevYest=     [0,0,0,0,0,0,0,0,140,290,460,540,410,350,400,440,390,320,250,180,0,0,0,0];
+var hourlyRevLastSat=  [0,0,0,0,0,0,0,0,120,260,430,510,380,320,380,440,360,300,230,160,0,0,0,0];
+var hourlyTxnToday=    [0,0,0,0,0,0,0,0,1,2,3,4,3,2,3,3,4,2,2,1,0,0,0,0];
+var hourlyTxnYest=     [0,0,0,0,0,0,0,0,1,2,3,3,2,2,3,3,2,2,1,1,0,0,0,0];
+
+// Current simulated hour is 14 (2pm) — in production: new Date().getHours()
+var CURRENT_HOUR=14;
+
+// Build chart labels for 8am–7pm
+var hourlyLabels=[];
+for(var h=8;h<=19;h++){hourlyLabels.push(h<12?h+'am':(h===12?'12pm':((h-12)+'pm')));}
+
+// ── KPI DATA BY FILTER ────────────────────────────────────────────────────────
+// In production: each filter triggers a different date-range query to the DB.
+// AOV = SUM(price_total) / COUNT(*) WHERE date_range
+// Projection = (revenue_so_far / hours_elapsed) * total_operating_hours
+var kpiData={
+  today:{
+    rev:'$3,510', revDelta:'&#8593; $690 vs yesterday', revNeg:false,
+    txns:'21',    txnDelta:'&#8593; 4 vs yesterday',    txnNeg:false,
+    aov:'$167',   aovDelta:'&#8593; $13 vs yesterday',  aovNeg:false,
+    proj:'$4,820',projSub:'Based on current pace',
+    stand:74,lights:58,delivery:18,
+    delivAlert:true
+  },
+  week:{
+    rev:'$15,262',revDelta:'&#8593; 18% vs last week',revNeg:false,
+    txns:'97',    txnDelta:'&#8593; 14 vs last week',txnNeg:false,
+    aov:'$157',   aovDelta:'&#8593; $9 vs last week',aovNeg:false,
+    proj:'—',     projSub:'Week in progress',
+    stand:71,lights:55,delivery:28,
+    delivAlert:false
+  },
+  season:{
+    rev:'$24,810',revDelta:'&#8593; 12% vs last season',revNeg:false,
+    txns:'163',   txnDelta:'Best season on record',txnNeg:false,
+    aov:'$152',   aovDelta:'&#8593; $11 vs last season',aovNeg:false,
+    proj:'$31,400',projSub:'Season projection at current pace',
+    stand:74,lights:58,delivery:30,
+    delivAlert:false
+  }
+};
+
+// ── PACE CALCULATIONS ─────────────────────────────────────────────────────────
+// In production: computed server-side from:
+//   hourly revenue through current hour, compared to same period yesterday/last week
+// Revenue so far today through 2pm = sum of hourlyRevToday[8..14]
+function revenueThrough(arr,upToHour){
+  var s=0;for(var i=8;i<=upToHour;i++)s+=arr[i];return s;
+}
+function computePaceData(){
+  var todaySoFar=revenueThrough(hourlyRevToday,CURRENT_HOUR);
+  var yesterdaySoFar=revenueThrough(hourlyRevYest,CURRENT_HOUR);
+  var lastSatSoFar=revenueThrough(hourlyRevLastSat,CURRENT_HOUR);
+  var vsYestPct=Math.round((todaySoFar-yesterdaySoFar)/yesterdaySoFar*100);
+  var vsLastSatPct=Math.round((todaySoFar-lastSatSoFar)/lastSatSoFar*100);
+  // Projection: pace * total hours / elapsed hours
+  var elapsed=CURRENT_HOUR-8+1; // hours including current
+  var totalHours=12; // 8am–7pm = 12 hours
+  var projected=Math.round((todaySoFar/elapsed)*totalHours/10)*10;
+  // Yesterday total
+  var yesterdayTotal=revenueThrough(hourlyRevYest,19);
+  return{vsYestPct,vsLastSatPct,projected,yesterdayTotal,
+    thisHourToday:hourlyRevToday[CURRENT_HOUR],
+    thisHourYest:hourlyRevYest[CURRENT_HOUR],
+    thisHourLastSat:hourlyRevLastSat[CURRENT_HOUR]};
+}
+
+// ── FILTER TOGGLE ─────────────────────────────────────────────────────────────
+function setSalesFilter(f){
+  salesFilter=f;
+  ['today','week','season'].forEach(function(k){
+    document.getElementById('sf-'+k).classList.toggle('fa',k===f);
+  });
+  var d=kpiData[f];
+  // Update KPI cards
+  setText('s-revenue',d.rev);
+  setHtml('s-rev-delta',d.revDelta);
+  setText('s-txns',d.txns);
+  setHtml('s-txn-delta',d.txnDelta);
+  setText('s-aov',d.aov);
+  setHtml('s-aov-delta',d.aovDelta);
+  setText('s-proj',d.proj);
+  setText('s-proj-sub',d.projSub);
+  // Attach bars
+  setAttachBar('s-stand-bar',d.stand,'#97C459','#173404',false);
+  setAttachBar('s-lights-bar',d.lights,'#5DCAA5','#04342C',false);
+  setAttachBar('s-deliv-bar',d.delivery,d.delivAlert?'#E24B4A':'#EF9F27',d.delivAlert?'#fff':'#412402',d.delivAlert);
+  var alertEl=document.getElementById('attach-alert');
+  if(alertEl){
+    alertEl.style.display=d.delivAlert?'block':'none';
+  }
+}
+function setText(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+function setHtml(id,v){var e=document.getElementById(id);if(e)e.innerHTML=v;}
+function setAttachBar(id,pct,bg,txtColor,isAlert){
+  var el=document.getElementById(id);
+  if(!el)return;
+  el.style.width=pct+'%';
+  el.style.background=bg;
+  el.innerHTML='<span class="attach-pct" style="color:'+txtColor+';">'+pct+'%</span>';
+}
+
+// ── CHART MODE TOGGLE ─────────────────────────────────────────────────────────
+function setChartMode(m){
+  chartMode=m;
+  document.getElementById('tog-revenue').classList.toggle('ca',m==='revenue');
+  document.getElementById('tog-transactions').classList.toggle('ca',m==='transactions');
+  document.getElementById('hourly-chart-title').textContent=
+    m==='revenue'?'Revenue by hour — today vs yesterday':'Transactions by hour — today vs yesterday';
+  updateHourlyChart();
+}
+function updateHourlyChart(){
+  if(!hourlyChartInst)return;
+  var isRev=chartMode==='revenue';
+  var todaySlice=isRev?hourlyRevToday.slice(8,20):hourlyTxnToday.slice(8,20);
+  var yesterdaySlice=isRev?hourlyRevYest.slice(8,20):hourlyTxnYest.slice(8,20);
+  // Color bars: current hour gets lighter green, future hours get near-transparent
+  var barColors=todaySlice.map(function(_,i){
+    var hr=i+8;
+    if(hr===CURRENT_HOUR)return'#97C459'; // current — lighter
+    if(hr>CURRENT_HOUR)return'rgba(99,153,34,0.2)'; // future — faded
+    return'#639922'; // past — solid
+  });
+  hourlyChartInst.data.datasets[0].data=todaySlice;
+  hourlyChartInst.data.datasets[0].backgroundColor=barColors;
+  hourlyChartInst.data.datasets[1].data=yesterdaySlice;
+  hourlyChartInst.options.scales.y.ticks.callback=isRev?function(v){return'$'+v;}:function(v){return v;};
+  hourlyChartInst.update();
+}
+
+// ── CHART INIT ────────────────────────────────────────────────────────────────
+// Called once when the user first clicks "Sales" — avoids rendering a chart in a hidden canvas.
+function initSalesCharts(){
+  if(chartsReady)return;
+  chartsReady=true;
+
+  // Build per-bar colors: past = solid green, current hour = lighter, future = faded
+  var initColors=hourlyRevToday.slice(8,20).map(function(_,i){
+    var hr=i+8;
+    if(hr===CURRENT_HOUR)return'#97C459';
+    if(hr>CURRENT_HOUR)return'rgba(99,153,34,0.2)';
+    return'#639922';
+  });
+
+  var hctx=document.getElementById('hourlyChart').getContext('2d');
+  hourlyChartInst=new Chart(hctx,{
+    type:'bar',
+    data:{
+      labels:hourlyLabels,
+      datasets:[
+        {
+          label:'Today',
+          data:hourlyRevToday.slice(8,20),
+          backgroundColor:initColors,
+          borderRadius:4,
+          order:2
+        },
+        {
+          label:'Yesterday',
+          data:hourlyRevYest.slice(8,20),
+          type:'line',
+          borderColor:'#B4B2A9',
+          backgroundColor:'transparent',
+          borderWidth:1.5,
+          pointRadius:3,
+          pointBackgroundColor:'#B4B2A9',
+          tension:0.35,
+          order:1
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        // Annotation plugin not available; we handle current-hour highlight via bar color instead
+        legend:{
+          display:true,position:'top',align:'end',
+          labels:{boxWidth:10,boxHeight:10,font:{size:10},color:'#888780',padding:12}
+        },
+        tooltip:{
+          backgroundColor:'#1c2b1a',
+          titleColor:'#9FE1CB',
+          bodyColor:'#C0DD97',
+          padding:9,cornerRadius:6,
+          callbacks:{
+            title:function(items){
+              var hr=parseInt(items[0].label)+7; // offset from label string
+              var isCurrent=(items[0].dataIndex+8)===CURRENT_HOUR;
+              return items[0].label+(isCurrent?' (current hour)':'');
+            },
+            label:function(ctx){
+              var prefix=ctx.datasetIndex===0?' Today: '  :' Yesterday: ';
+              return prefix+(chartMode==='revenue'?'$':'')+ctx.parsed.y;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{color:'#888780',font:{size:10}},
+          // Draw a subtle "now" marker: the current hour label is bolded
+          afterTickToLabelConversion:function(axis){
+            axis.ticks.forEach(function(tick,i){
+              if(i+8===CURRENT_HOUR)tick.major=true;
+            });
+          }
+        },
+        y:{
+          grid:{color:'#f1efe8'},
+          ticks:{color:'#888780',font:{size:10},callback:function(v){return'$'+v;}},
+          beginAtZero:true
+        }
+      }
+    }
+  });
+
+  // Update pace panel with computed values
+  var pace=computePaceData();
+  setText('pace-this-hour','$'+pace.thisHourToday);
+  setText('pace-vs-sat','$'+pace.thisHourLastSat);
+  var projFormatted='$'+pace.projected.toLocaleString();
+  setText('pace-proj-val',projFormatted);
+  // vs yesterday pace indicator
+  var vsYEl=document.getElementById('pace-vs-yest');
+  if(vsYEl){
+    var ahead=pace.vsYestPct>=0;
+    vsYEl.className='pace-indicator '+(ahead?'ahead':'behind');
+    vsYEl.innerHTML='<div class="pace-dot '+(ahead?'ahead':'behind')+'"></div>'+(ahead?'+':'')+pace.vsYestPct+'% vs yesterday 2pm';
+  }
+  // vs last saturday indicator
+  var vsSEl=document.getElementById('pace-vs-sat-ind');
+  if(vsSEl){
+    var aheadS=pace.vsLastSatPct>=0;
+    vsSEl.className='pace-indicator '+(aheadS?'ahead':'behind');
+    vsSEl.innerHTML='<div class="pace-dot '+(aheadS?'ahead':'behind')+'"></div>'+(aheadS?'+':'')+pace.vsLastSatPct+'% vs last Sat';
+  }
+}
+</script>
+</body>
+</html>

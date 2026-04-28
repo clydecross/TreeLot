@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  /* TreeLot brand palette */
+  --color-dark-green: #1c2b1a;
+  --color-forest: #243322;
+  --color-green: #3B6D11;
+  --color-mid-green: #639922;
+  --color-light-green: #97C459;
+  --color-pale-green: #EAF3DE;
+  --color-mint: #C0DD97;
+  --color-teal: #5DCAA5;
+  --color-off-white: #f5f4f0;
+  --color-border: #d3d1c7;
+  --color-text-primary: #2C2C2A;
+  --color-text-muted: #888780;
+  --color-text-dim: #444441;
+  --color-deep-green: #27500A;
+}
+
+:root {
+  --background: #f5f4f0;
+  --foreground: #2C2C2A;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
