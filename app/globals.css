@@ -1,30 +1,210 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────
+   TreeLot semantic tokens — surface/text/border/brand/status/etc.
+   These flip between :root (light) and [data-theme="dark"].
+   The chrome (sidebar + top bar) stays dark green in both themes.
+   ───────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="light"] {
+  /* surface */
+  --bg-app:        #f5f4f0;
+  --bg-surface:    #ffffff;
+  --bg-elevated:   #fafaf6;
+  --bg-inset:      #f1efe8;
+  --bg-overlay:    rgb(0 0 0 / 0.40);
+
+  /* text */
+  --fg-default:    #2C2C2A;
+  --fg-muted:      #888780;
+  --fg-subtle:     #B4B2A9;
+  --fg-onbrand:    #C0DD97;
+  --fg-disabled:   #C9C7C0;
+
+  /* border */
+  --border-default: #d3d1c7;
+  --border-strong:  #B4B2A9;
+  --border-subtle:  #e7e5dd;
+  --border-brand:   #639922;
+
+  /* brand */
+  --brand-primary:    #3B6D11;
+  --brand-primary-hov:#27500A;
+  --brand-primary-fg: #C0DD97;
+  --brand-soft-bg:    #EAF3DE;
+  --brand-soft-fg:    #3B6D11;
+
+  /* status */
+  --success-bg: #EAF3DE; --success-fg: #3B6D11; --success-border: #C0DD97;
+  --info-bg:    #DEF1EA; --info-fg:    #085041; --info-border:    #9FE1CB;
+  --warn-bg:    #FFE9C2; --warn-fg:    #854F0B; --warn-border:    #FAC775;
+  --error-bg:   #FBDADC; --error-fg:   #88161A; --error-border:   #F4B5BA;
+
+  /* chrome (constant across themes — the sidebar/top-bar are always dark green) */
+  --chrome-topbar:    #1c2b1a;
+  --chrome-sidebar:   #243322;
+  --chrome-fg:        #C0DD97;
+  --chrome-fg-muted:  #5DCAA5;
+  --chrome-active-bg: #3B6D11;
+  --chrome-divider:   #3B6D11;
+
+  /* shadow */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.06), 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 8px 24px -8px rgb(0 0 0 / 0.10), 0 2px 6px -2px rgb(0 0 0 / 0.05);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 28%, transparent);
+}
+
+[data-theme="dark"] {
+  --bg-app:        #0E1410;
+  --bg-surface:    #161D17;
+  --bg-elevated:   #1D241E;
+  --bg-inset:      #121812;
+  --bg-overlay:    rgb(0 0 0 / 0.65);
+
+  --fg-default:    #E6E8E0;
+  --fg-muted:      #8F938A;
+  --fg-subtle:     #6A6E66;
+  --fg-onbrand:    #DCEDBE;
+  --fg-disabled:   #4A4E45;
+
+  --border-default: #2A332B;
+  --border-strong:  #3A453B;
+  --border-subtle:  #20281F;
+  --border-brand:   #4F8C1E;
+
+  --brand-primary:    #97C459;
+  --brand-primary-hov:#B4D77E;
+  --brand-primary-fg: #0E1410;
+  --brand-soft-bg:    #1F3014;
+  --brand-soft-fg:    #C0DD97;
+
+  --success-bg: #14290B; --success-fg: #97C459; --success-border: #2C5215;
+  --info-bg:    #0F2922; --info-fg:    #5DCAA5; --info-border:    #1F4A3F;
+  --warn-bg:    #2D1E08; --warn-fg:    #E2A85B; --warn-border:    #5A3B11;
+  --error-bg:   #2C1112; --error-fg:   #E89094; --error-border:   #5A2024;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.30);
+  --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.40), 0 1px 2px 0 rgb(0 0 0 / 0.20);
+  --shadow-lg: 0 8px 24px -8px rgb(0 0 0 / 0.55), 0 2px 6px -2px rgb(0 0 0 / 0.35);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 35%, transparent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Tailwind v4 bindings — exposes tokens as utilities (bg-bg-surface,
+   text-fg-muted, border-border-default, etc.). `@theme inline` keeps
+   them as CSS-var references so they react to data-theme changes.
+   ───────────────────────────────────────────────────────────────────── */
+
+@theme inline {
+  /* surface */
+  --color-bg-app:      var(--bg-app);
+  --color-bg-surface:  var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-inset:    var(--bg-inset);
+  --color-bg-overlay:  var(--bg-overlay);
+
+  /* text */
+  --color-fg-default:  var(--fg-default);
+  --color-fg-muted:    var(--fg-muted);
+  --color-fg-subtle:   var(--fg-subtle);
+  --color-fg-onbrand:  var(--fg-onbrand);
+  --color-fg-disabled: var(--fg-disabled);
+
+  /* border */
+  --color-border-default: var(--border-default);
+  --color-border-strong:  var(--border-strong);
+  --color-border-subtle:  var(--border-subtle);
+  --color-border-brand:   var(--border-brand);
+
+  /* brand */
+  --color-brand:       var(--brand-primary);
+  --color-brand-hov:   var(--brand-primary-hov);
+  --color-brand-fg:    var(--brand-primary-fg);
+  --color-brand-soft:  var(--brand-soft-bg);
+  --color-brand-softfg:var(--brand-soft-fg);
+
+  /* status */
+  --color-success-bg: var(--success-bg);  --color-success-fg: var(--success-fg);
+  --color-info-bg:    var(--info-bg);     --color-info-fg:    var(--info-fg);
+  --color-warn-bg:    var(--warn-bg);     --color-warn-fg:    var(--warn-fg);
+  --color-error-bg:   var(--error-bg);    --color-error-fg:   var(--error-fg);
+
+  /* chrome */
+  --color-chrome-topbar:    var(--chrome-topbar);
+  --color-chrome-sidebar:   var(--chrome-sidebar);
+  --color-chrome-fg:        var(--chrome-fg);
+  --color-chrome-fg-muted:  var(--chrome-fg-muted);
+  --color-chrome-active:    var(--chrome-active-bg);
+  --color-chrome-divider:   var(--chrome-divider);
+
+  /* radii */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* type */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Legacy brand tokens — kept so SidebarNav.tsx (`bg-green`, `text-mint`,
+   etc.) keeps working until those classes are migrated.
+   ───────────────────────────────────────────────────────────────────── */
+
 @theme {
-  /* TreeLot brand palette */
-  --color-dark-green: #1c2b1a;
-  --color-forest: #243322;
-  --color-green: #3B6D11;
-  --color-mid-green: #639922;
-  --color-light-green: #97C459;
-  --color-pale-green: #EAF3DE;
-  --color-mint: #C0DD97;
-  --color-teal: #5DCAA5;
-  --color-off-white: #f5f4f0;
-  --color-border: #d3d1c7;
+  --color-dark-green:   #1c2b1a;
+  --color-forest:       #243322;
+  --color-green:        #3B6D11;
+  --color-mid-green:    #639922;
+  --color-light-green:  #97C459;
+  --color-pale-green:   #EAF3DE;
+  --color-mint:         #C0DD97;
+  --color-teal:         #5DCAA5;
+  --color-off-white:    #f5f4f0;
+  --color-border:       #d3d1c7;
   --color-text-primary: #2C2C2A;
-  --color-text-muted: #888780;
-  --color-text-dim: #444441;
-  --color-deep-green: #27500A;
+  --color-text-muted:   #888780;
+  --color-text-dim:     #444441;
+  --color-deep-green:   #27500A;
 }
 
-:root {
-  --background: #f5f4f0;
-  --foreground: #2C2C2A;
+/* ─────────────────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────────────────── */
+
+html, body {
+  background: var(--bg-app);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+/* Tabular numerals on data-heavy surfaces */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Keyboard focus ring used by all primitives */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Mobile-friendly base styles
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Prevent horizontal scroll on mobile when content overflows */
+body { overflow-x: hidden; }
+
+/* Larger tap targets globally on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  button, a, [role="button"] { min-height: 36px; }
+}
+
+/* Safe-area insets for notched iPhones */
+.safe-area-inset-top    { padding-top: env(safe-area-inset-top); }
+.safe-area-inset-bottom { padding-bottom: env(safe-area-inset-bottom); }

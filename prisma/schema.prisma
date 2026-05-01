@@ -44,6 +44,13 @@ enum DeliveryStatus {
   failed
 }
 
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model Organization {
@@ -54,9 +61,10 @@ model Organization {
   taxRateBps       Int      @default(825)
   createdAt        DateTime @default(now()) @db.Timestamptz
 
-  locations Location[]
-  users     User[]
-  customers Customer[]
+  locations   Location[]
+  users       User[]
+  customers   Customer[]
+  invitations Invitation[]
 
   @@map("organizations")
 }
@@ -69,10 +77,11 @@ model Location {
   timezone  String   @default("America/Chicago")
   createdAt DateTime @default(now()) @db.Timestamptz
 
-  org       Organization @relation(fields: [orgId], references: [id])
-  users     User[]
-  purchases Purchase[]
-  deliveries Delivery[]
+  org         Organization @relation(fields: [orgId], references: [id])
+  users       User[]
+  purchases   Purchase[]
+  deliveries  Delivery[]
+  invitations Invitation[]
 
   @@map("locations")
 }
@@ -91,8 +100,9 @@ model User {
 
   org      Organization @relation(fields: [orgId], references: [id])
   location Location?    @relation(fields: [locationId], references: [id])
-  purchases  Purchase[]
-  deliveries Delivery[]
+  purchases   Purchase[]
+  deliveries  Delivery[]
+  invitations Invitation[] @relation("InvitedBy")
 
   @@map("users")
 }
@@ -180,4 +190,25 @@ model Delivery {
   driver   User?     @relation(fields: [driverId], references: [id])
 
   @@map("deliveries")
+}
+
+model Invitation {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId         String           @db.Uuid
+  email         String
+  role          Role
+  locationId    String?          @db.Uuid
+  invitedById   String           @db.Uuid
+  clerkInviteId String?          @unique
+  status        InvitationStatus @default(pending)
+  acceptedAt    DateTime?        @db.Timestamptz
+  createdAt     DateTime         @default(now()) @db.Timestamptz
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  location  Location?    @relation(fields: [locationId], references: [id])
+  invitedBy User         @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([email])
+  @@index([orgId, status])
+  @@map("invitations")
 }

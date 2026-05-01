@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { cn } from '@/lib/cn';
 
-// Phase 4 test constants — replaced with real org context in Phase 5
-const TEST_ORG_ID      = 'e82e886b-842a-44fc-9a0b-91821cf8e6e5';
-const TEST_LOCATION_ID = '728060d6-4239-4622-ae0d-1f0b6fbb5d9a';
-const TEST_USER_ID     = '877ddf10-efd5-4dcd-9ce5-a8c7de3c7044';
-const SEASON_YEAR      = 2026;
+const SEASON_YEAR = 2026;
 
 const SIZES = ['3–5ft', '6–8ft', '9–10ft', '11–12ft', '13–14ft', '14ft+'];
 
@@ -51,7 +53,7 @@ function numpadPress(raw: string, digit: string): string {
   return raw + digit;
 }
 
-type TreeType = 'fraser' | 'noble' | 'other';
+type TreeType  = 'fraser' | 'noble' | 'other';
 type PayMethod = 'cash' | 'card' | 'venmo' | 'zelle';
 type TimeWindow = 'morning' | 'afternoon' | 'evening' | 'anytime';
 
@@ -65,11 +67,20 @@ interface SaleResult {
   payMethod:    PayMethod;
 }
 
+function SectionLabel({ children, accent }: { children: React.ReactNode; accent?: React.ReactNode }) {
+  return (
+    <div className="text-[10px] font-semibold tracking-[0.08em] uppercase text-fg-muted mb-2 flex items-baseline gap-1.5">
+      <span>{children}</span>
+      {accent && <span className="text-fg-default font-medium tracking-normal normal-case">{accent}</span>}
+    </div>
+  );
+}
+
 function PriceLine({ label, value, muted, bold }: { label: string; value: string; muted?: boolean; bold?: boolean }) {
   return (
     <div className="flex justify-between items-center py-0.5">
-      <span className="text-sm" style={{ color: muted ? '#5F5E5A' : '#E8E6E0' }}>{label}</span>
-      <span className="text-sm" style={{ color: '#E8E6E0', fontWeight: bold ? 600 : 400 }}>{value}</span>
+      <span className={cn('text-[13px]', muted ? 'text-fg-muted' : 'text-fg-default')}>{label}</span>
+      <span className={cn('text-[13px] tabular-nums text-fg-default', bold && 'font-semibold')}>{value}</span>
     </div>
   );
 }
@@ -77,14 +88,41 @@ function PriceLine({ label, value, muted, bold }: { label: string; value: string
 function SaleRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex justify-between items-center py-1">
-      <span className="text-sm" style={{ color: '#5F5E5A' }}>{label}</span>
-      <span className="text-sm font-medium" style={{ color: accent ? '#9FE1CB' : '#E8E6E0' }}>{value}</span>
+      <span className="text-[13px] text-fg-muted">{label}</span>
+      <span className={cn('text-[13px] font-medium tabular-nums',
+        accent ? 'text-brand-softfg' : 'text-fg-default')}>
+        {value}
+      </span>
     </div>
   );
 }
 
+function NumpadKey({ digit, onPress }: { digit: string; onPress: (d: string) => void }) {
+  return (
+    <button
+      onClick={() => onPress(digit)}
+      className={cn(
+        'h-11 rounded-[var(--radius-md)] text-[14px] font-medium border focus-ring',
+        'transition-colors duration-[140ms] ease-out tabular-nums',
+        digit === 'C'
+          ? 'bg-error-bg text-error-fg border-[var(--error-border)] hover:brightness-105'
+          : digit === '←'
+            ? 'bg-bg-elevated text-brand-softfg border-border-default hover:bg-bg-inset'
+            : 'bg-bg-surface text-fg-default border-border-default hover:bg-bg-elevated',
+      )}
+    >
+      {digit}
+    </button>
+  );
+}
+
+type MobileStep = 'customer' | 'order' | 'pay';
+
 export default function POSPage() {
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── Mobile step (only used at < lg) ─────────────────────────────
+  const [mobileStep, setMobileStep] = useState<MobileStep>('customer');
 
   // ── Customer search ──────────────────────────────────────────────
   const [query,      setQuery]      = useState('');
@@ -121,17 +159,17 @@ export default function POSPage() {
 
   // ── tRPC ─────────────────────────────────────────────────────────
   const { data: results = [], isFetching } = trpc.customers.search.useQuery(
-    { query: debouncedQuery, orgId: TEST_ORG_ID },
+    { query: debouncedQuery },
     { enabled: debouncedQuery.length > 0 && !showNew }
   );
 
   const { data: cust } = trpc.customers.getById.useQuery(
-    { id: selectedId!, orgId: TEST_ORG_ID },
+    { id: selectedId! },
     { enabled: !!selectedId }
   );
 
-  const { data: org } = trpc.orgs.getById.useQuery(
-    { id: TEST_ORG_ID },
+  const { data: org } = trpc.orgs.getCurrent.useQuery(
+    undefined,
     { staleTime: Infinity }
   );
 
@@ -147,6 +185,11 @@ export default function POSPage() {
   });
 
   const createPurchase = trpc.purchases.create.useMutation();
+
+  // Auto-advance to 'order' tab when a customer is selected (mobile only).
+  useEffect(() => {
+    if (selectedId) setMobileStep((prev) => (prev === 'customer' ? 'order' : prev));
+  }, [selectedId]);
 
   // ── Derived values ───────────────────────────────────────────────
   const taxRateBps      = org?.taxRateBps ?? 825;
@@ -185,7 +228,6 @@ export default function POSPage() {
   function completeSale() {
     if (!selectedId || !payMethod || !canComplete) return;
 
-    // Capture display values at call time to avoid stale closure in onSuccess
     const custName  = cust ? `${cust.firstName} ${cust.lastName}` : '';
     const treeLabel = treeTypeLabel();
     const szLabel   = SIZES[sizeIdx];
@@ -194,8 +236,6 @@ export default function POSPage() {
     createPurchase.mutate(
       {
         customerId:        selectedId,
-        locationId:        TEST_LOCATION_ID,
-        createdById:       TEST_USER_ID,
         seasonYear:        SEASON_YEAR,
         treeType:          treeType === 'fraser' ? 'Fraser Fir' : treeType === 'noble' ? 'Noble Fir' : 'Other',
         treeTypeName:      treeType === 'other' ? treeTypeLabel() : undefined,
@@ -248,85 +288,82 @@ export default function POSPage() {
     setDelivery(false);
     setDf({ addressLine1: '', city: '', state: '', zip: '', deliveryDate: '', timeWindow: 'anytime', installRequested: false, specialInstructions: '' });
     setNotes('');
+    setMobileStep('customer');
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
-  // ── Styles helpers ────────────────────────────────────────────────
-  const btnActive   = { background: '#27500A', color: '#9FE1CB', border: '1px solid #3d7a12' } as const;
-  const btnInactive = { background: '#252521', color: '#E8E6E0', border: '1px solid #2e2e2a' } as const;
-  function toggleStyle(active: boolean) { return active ? btnActive : btnInactive; }
+  // ── Mobile tab status indicators ─────────────────────────────────
+  const customerDone = !!selectedId;
+  const orderDone    = subtotalCents > 0;
+  const payDone      = !!payMethod && (payMethod !== 'cash' || cashRaw !== '');
 
   // ── Render ───────────────────────────────────────────────────────
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: '#1a1a18' }}>
+    <div className={cn('flex h-full overflow-hidden bg-bg-app lg:pb-0', saleResult ? 'pb-0' : 'pb-16')}>
 
       {/* ══════════════════════════════════════════════════════════════
-          LEFT PANEL — Customer search
+          LEFT — Customer search
       ══════════════════════════════════════════════════════════════ */}
       <aside
-        className="flex flex-col flex-shrink-0 border-r"
-        style={{ width: 250, borderColor: '#2e2e2a' }}
+        className={cn(
+          'flex-col flex-shrink-0 lg:w-[260px] w-full lg:border-r lg:border-border-default bg-bg-surface',
+          'lg:flex',
+          mobileStep === 'customer' && !saleResult ? 'flex' : 'hidden lg:flex',
+        )}
       >
-        {/* Header */}
         {showNew ? (
-          <div className="p-3 border-b flex items-center gap-2" style={{ borderColor: '#2e2e2a' }}>
+          <div className="p-3 border-b border-border-default flex items-center gap-2">
             <button
               onClick={() => { setShowNew(false); setNcErr(''); }}
-              className="text-xs"
-              style={{ color: '#5F5E5A' }}
+              className="text-[12px] text-fg-muted hover:text-fg-default focus-ring rounded px-1"
             >
               ← Back
             </button>
-            <span className="text-sm font-medium" style={{ color: '#E8E6E0' }}>New Customer</span>
+            <span className="text-[13px] font-semibold text-fg-default">New Customer</span>
           </div>
         ) : (
-          <div className="p-3 border-b" style={{ borderColor: '#2e2e2a' }}>
-            <div
-              className="flex items-center gap-2 rounded px-3"
-              style={{ background: '#252521', height: 34 }}
-            >
-              <svg className="flex-shrink-0" width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <circle cx="7" cy="7" r="5.5" stroke="#5F5E5A" strokeWidth="1.5" />
-                <path d="M11 11L14.5 14.5" stroke="#5F5E5A" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder="Search customers…"
-                value={query}
-                onChange={(e) => { setQuery(e.target.value); setSelectedId(null); }}
-                className="flex-1 bg-transparent outline-none text-sm"
-                style={{ color: '#E8E6E0', caretColor: '#7CB542' }}
-                autoFocus
-              />
-              {isFetching && <span className="text-xs" style={{ color: '#5F5E5A' }}>···</span>}
-            </div>
+          <div className="p-3 border-b border-border-default">
+            <Input
+              ref={inputRef}
+              type="text"
+              placeholder="Search customers…"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setSelectedId(null); }}
+              autoFocus
+              leading={
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M11 11L14.5 14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              }
+              trailing={isFetching ? <span className="text-[11px] text-fg-subtle">···</span> : null}
+            />
           </div>
         )}
 
-        {/* New customer form */}
         {showNew ? (
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
             {(['firstName', 'lastName', 'phone', 'email'] as const).map((field) => (
               <div key={field}>
-                <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>
+                <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">
                   {field === 'firstName' ? 'First name *'
-                    : field === 'lastName' ? 'Last name *'
-                    : field === 'phone' ? 'Phone *'
+                    : field === 'lastName'  ? 'Last name *'
+                    : field === 'phone'     ? 'Phone *'
                     : 'Email'}
                 </label>
-                <input
+                <Input
                   type={field === 'email' ? 'email' : 'text'}
+                  inputSize="sm"
                   value={nc[field]}
                   onChange={(e) => setNc(p => ({ ...p, [field]: e.target.value }))}
-                  className="w-full rounded px-2 py-1.5 text-sm outline-none"
-                  style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
                 />
               </div>
             ))}
-            {ncErr && <div className="text-xs" style={{ color: '#ef8888' }}>{ncErr}</div>}
-            <button
-              disabled={createCust.isPending}
+            {ncErr && <div className="text-[12px] text-error-fg">{ncErr}</div>}
+            <Button
+              fullWidth
+              variant="primary"
+              loading={createCust.isPending}
               onClick={() => {
                 setNcErr('');
                 if (!nc.firstName.trim() || !nc.lastName.trim() || !nc.phone.trim()) {
@@ -334,98 +371,93 @@ export default function POSPage() {
                   return;
                 }
                 createCust.mutate({
-                  orgId:     TEST_ORG_ID,
                   firstName: nc.firstName.trim(),
                   lastName:  nc.lastName.trim(),
                   phone:     nc.phone.trim(),
                   email:     nc.email.trim() || undefined,
                 });
               }}
-              className="w-full rounded text-sm font-medium py-2 mt-1"
-              style={{ ...btnActive, opacity: createCust.isPending ? 0.6 : 1 }}
             >
               {createCust.isPending ? 'Saving…' : 'Create Customer'}
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
             {debouncedQuery.length === 0 && (
-              <div
-                className="flex items-center justify-center h-32 text-xs text-center px-4"
-                style={{ color: '#5F5E5A' }}
-              >
+              <div className="flex items-center justify-center h-32 text-[12px] text-center px-4 text-fg-subtle">
                 Type a name, phone,<br />or email to search
               </div>
             )}
             {debouncedQuery.length > 0 && !isFetching && results.length === 0 && (
-              <div className="flex items-center justify-center h-32 text-xs" style={{ color: '#5F5E5A' }}>
+              <div className="flex items-center justify-center h-32 text-[12px] text-fg-subtle">
                 No customers found
               </div>
             )}
-            {results.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedId(c.id)}
-                className="w-full text-left px-3 py-2.5 border-b transition-colors"
-                style={{
-                  borderColor: '#2e2e2a',
-                  background: selectedId === c.id ? '#252521' : 'transparent',
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium truncate" style={{ color: '#E8E6E0' }}>
-                    {c.firstName} {c.lastName}
-                  </span>
-                  {c.seasonsCount > 0 && (
-                    <span className="text-xs ml-1 flex-shrink-0" style={{ color: '#7CB542' }}>
-                      {c.seasonsCount}× returning
-                    </span>
+            {results.map((c) => {
+              const isSel = selectedId === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedId(c.id)}
+                  className={cn(
+                    'w-full text-left px-3 py-2.5 border-b border-border-subtle transition-colors duration-[140ms] ease-out focus-ring',
+                    isSel
+                      ? 'bg-brand-soft border-l-2 border-l-brand pl-[10px]'
+                      : 'hover:bg-bg-elevated',
                   )}
-                </div>
-                <div className="text-xs mt-0.5 truncate" style={{ color: '#5F5E5A' }}>
-                  {c.phone}{c.email ? ` · ${c.email}` : ''}
-                </div>
-                {c.lastTreeType && (
-                  <div className="text-xs mt-0.5" style={{ color: '#4a7a2a' }}>
-                    Last: {c.lastTreeType}
-                    {c.lastTreeSize ? ` ${c.lastTreeSize}` : ''}
-                    {c.lastTotalCents ? ` — ${fmt(c.lastTotalCents)}` : ''}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={cn('text-[13px] font-semibold truncate',
+                      isSel ? 'text-brand-softfg' : 'text-fg-default')}>
+                      {c.firstName} {c.lastName}
+                    </span>
+                    {c.seasonsCount > 0 && (
+                      <Badge variant="brand" size="sm">{c.seasonsCount}× returning</Badge>
+                    )}
                   </div>
-                )}
-              </button>
-            ))}
+                  <div className="text-[11.5px] mt-0.5 truncate text-fg-muted tabular-nums">
+                    {c.phone}{c.email ? ` · ${c.email}` : ''}
+                  </div>
+                  {c.lastTreeType && (
+                    <div className="text-[11px] mt-0.5 text-brand-softfg">
+                      Last: {c.lastTreeType}
+                      {c.lastTreeSize ? ` ${c.lastTreeSize}` : ''}
+                      {c.lastTotalCents ? ` — ${fmt(c.lastTotalCents)}` : ''}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* New customer button */}
         {!showNew && (
-          <div className="p-3 border-t" style={{ borderColor: '#2e2e2a' }}>
-            <button
+          <div className="p-3 border-t border-border-default">
+            <Button
+              fullWidth
+              variant="primary"
               onClick={() => { setShowNew(true); setSelectedId(null); setQuery(''); }}
-              className="w-full rounded text-sm font-medium py-2"
-              style={btnActive}
             >
               + New Customer
-            </button>
+            </Button>
           </div>
         )}
       </aside>
 
       {/* ══════════════════════════════════════════════════════════════
-          CENTER PANEL — Order builder  (or sale success)
+          CENTER — Order builder  (or sale success)
       ══════════════════════════════════════════════════════════════ */}
       {saleResult ? (
-        /* ── SUCCESS STATE ──────────────────────────────────────────── */
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div
-            className="w-full max-w-sm rounded-xl p-6"
-            style={{ background: '#252521', border: '1px solid #2e2e2a' }}
-          >
+        <div className="flex-1 flex items-center justify-center p-8 w-full">
+          <Card variant="elevated" radius="xl" padding="lg" className="w-full max-w-sm">
             <div className="text-center mb-5">
-              <div className="text-4xl mb-2" style={{ color: '#7CB542' }}>✓</div>
-              <div className="text-lg font-semibold" style={{ color: '#9FE1CB' }}>Sale complete!</div>
+              <div
+                className="mx-auto mb-3 w-12 h-12 rounded-full flex items-center justify-center text-[22px] font-semibold bg-brand text-brand-fg"
+                aria-hidden
+              >✓</div>
+              <div className="text-[18px] font-semibold tracking-tight text-fg-default">Sale complete</div>
             </div>
-            <div className="flex flex-col border-t border-b py-3 mb-5" style={{ borderColor: '#2e2e2a' }}>
+            <div className="border-t border-b border-border-subtle py-3 mb-5">
               <SaleRow label="Customer" value={saleResult.customerName} />
               <SaleRow label="Tree"     value={`${saleResult.treeLabel} ${saleResult.sizeLabel}`} />
               <SaleRow label="Total"    value={fmt(saleResult.totalCents)} accent />
@@ -437,54 +469,43 @@ export default function POSPage() {
             </div>
             <div className="flex flex-col gap-2">
               {saleResult.deliveryId && (
-                <a
-                  href="/deliveries"
-                  className="block w-full text-center rounded py-2 text-sm font-medium"
-                  style={btnActive}
-                >
-                  View in deliveries →
+                <a href="/deliveries" className="block w-full">
+                  <Button fullWidth variant="primary">View in deliveries →</Button>
                 </a>
               )}
-              <button
-                onClick={newSale}
-                className="w-full rounded py-2 text-sm font-medium"
-                style={btnInactive}
-              >
-                New sale
-              </button>
+              <Button fullWidth variant="secondary" onClick={newSale}>New sale</Button>
             </div>
-          </div>
+          </Card>
         </div>
       ) : (
-        /* ── ORDER BUILDER ──────────────────────────────────────────── */
         <div
-          className="flex-1 flex flex-col overflow-hidden border-r"
-          style={{ borderColor: '#2e2e2a' }}
+          className={cn(
+            'flex-1 flex-col overflow-hidden lg:border-r lg:border-border-default bg-bg-app w-full',
+            'lg:flex',
+            mobileStep === 'order' ? 'flex' : 'hidden lg:flex',
+          )}
         >
           {/* Customer header */}
-          <div className="p-4 border-b flex-shrink-0" style={{ borderColor: '#2e2e2a' }}>
+          <div className="p-4 border-b border-border-default flex-shrink-0 bg-bg-surface">
             {cust ? (
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-base font-semibold" style={{ color: '#E8E6E0' }}>
+                  <div className="text-[16px] font-semibold tracking-tight text-fg-default">
                     {cust.firstName} {cust.lastName}
                   </div>
-                  <div className="text-sm mt-0.5" style={{ color: '#9FE1CB' }}>{cust.phone}</div>
+                  <div className="text-[13px] mt-0.5 text-brand-softfg tabular-nums">{cust.phone}</div>
                   {cust.email && (
-                    <div className="text-xs mt-0.5" style={{ color: '#5F5E5A' }}>{cust.email}</div>
+                    <div className="text-[11.5px] mt-0.5 text-fg-muted">{cust.email}</div>
                   )}
                 </div>
                 {cust.purchases.length > 0 && (
-                  <div
-                    className="text-xs px-2 py-1 rounded flex-shrink-0"
-                    style={{ background: '#1a1a18', color: '#7CB542', border: '1px solid #2e2e2a' }}
-                  >
+                  <Badge variant="success" size="md">
                     {cust.purchases.length} past purchase{cust.purchases.length !== 1 ? 's' : ''}
-                  </div>
+                  </Badge>
                 )}
               </div>
             ) : (
-              <div className="text-sm" style={{ color: '#5F5E5A' }}>
+              <div className="text-[13px] text-fg-muted">
                 {selectedId ? 'Loading…' : 'Select a customer to begin an order'}
               </div>
             )}
@@ -495,62 +516,51 @@ export default function POSPage() {
 
             {/* Quick combos */}
             <section>
-              <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-                QUICK COMBOS
-              </div>
+              <SectionLabel>Quick combos</SectionLabel>
               <div className="grid grid-cols-2 gap-1.5">
                 {COMBOS.map((c) => (
-                  <button
-                    key={c.label}
-                    onClick={() => applyCombo(c)}
-                    className="text-left px-2.5 py-2 rounded text-xs leading-snug"
-                    style={btnInactive}
-                  >
+                  <Button key={c.label} variant="secondary" size="sm" onClick={() => applyCombo(c)} className="!justify-start text-left">
                     {c.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </section>
 
             {/* Tree type */}
             <section>
-              <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-                TREE TYPE
-              </div>
+              <SectionLabel>Tree type</SectionLabel>
               <div className="flex gap-2">
                 {(['fraser', 'noble', 'other'] as const).map((t) => (
-                  <button
+                  <Button
                     key={t}
+                    fullWidth
+                    variant={treeType === t ? 'soft' : 'secondary'}
                     onClick={() => setTreeType(t)}
-                    className="flex-1 py-2.5 rounded text-sm font-medium"
-                    style={toggleStyle(treeType === t)}
                   >
                     {t === 'fraser' ? 'Fraser Fir' : t === 'noble' ? 'Noble Fir' : 'Other'}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {treeType === 'other' && (
                 <div className="mt-2">
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {OTHER_SUBS.map((s) => (
-                      <button
+                      <Button
                         key={s.key}
+                        size="sm"
+                        variant={otherSub === s.key ? 'soft' : 'secondary'}
                         onClick={() => setOtherSub(s.key)}
-                        className="px-2.5 py-1 rounded text-xs"
-                        style={toggleStyle(otherSub === s.key)}
                       >
                         {s.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   {otherSub === 'custom' && (
-                    <input
+                    <Input
                       type="text"
                       placeholder="Tree variety…"
                       value={otherName}
                       onChange={(e) => setOtherName(e.target.value)}
-                      className="w-full rounded px-3 py-2 text-sm outline-none"
-                      style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
                     />
                   )}
                 </div>
@@ -559,176 +569,116 @@ export default function POSPage() {
 
             {/* Size */}
             <section>
-              <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-                SIZE
-              </div>
+              <SectionLabel>Size</SectionLabel>
               <div className="grid grid-cols-3 gap-1.5">
                 {SIZES.map((s, i) => (
-                  <button
+                  <Button
                     key={s}
+                    variant={sizeIdx === i ? 'soft' : 'secondary'}
                     onClick={() => setSizeIdx(i)}
-                    className="py-2 rounded text-sm font-medium"
-                    style={toggleStyle(sizeIdx === i)}
                   >
                     {s}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </section>
 
             {/* Add-ons */}
             <section>
-              <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-                ADD-ONS
-              </div>
+              <SectionLabel>Add-ons</SectionLabel>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setStand(!stand)}
-                  className="flex-1 py-2 rounded text-sm font-medium"
-                  style={toggleStyle(stand)}
-                >
+                <Button fullWidth variant={stand ? 'soft' : 'secondary'} onClick={() => setStand(!stand)}>
                   {stand ? '✓ ' : ''}Stand
-                </button>
-                <button
-                  onClick={() => setLights(!lights)}
-                  className="flex-1 py-2 rounded text-sm font-medium"
-                  style={toggleStyle(lights)}
-                >
+                </Button>
+                <Button fullWidth variant={lights ? 'soft' : 'secondary'} onClick={() => setLights(!lights)}>
                   {lights ? '✓ ' : ''}Lights
-                </button>
+                </Button>
               </div>
             </section>
 
             {/* Delivery */}
             <section>
-              <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-                DELIVERY
-              </div>
-              <button
+              <SectionLabel>Delivery</SectionLabel>
+              <Button
+                fullWidth
+                variant={delivery ? 'soft' : 'secondary'}
                 onClick={() => setDelivery(!delivery)}
-                className="w-full py-2 rounded text-sm font-medium"
-                style={toggleStyle(delivery)}
               >
                 {delivery ? '✓ Delivery requested' : 'Request delivery'}
-              </button>
+              </Button>
 
               {delivery && (
-                <div
-                  className="mt-3 rounded-lg p-3 flex flex-col gap-2"
-                  style={{ background: '#1e1e1c', border: '1px solid #2e2e2a' }}
-                >
+                <Card variant="inset" padding="sm" radius="md" className="mt-3 flex flex-col gap-2.5">
                   <div>
-                    <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>Address *</label>
-                    <input
-                      type="text"
-                      placeholder="123 Main St"
-                      value={df.addressLine1}
-                      onChange={(e) => setDf(p => ({ ...p, addressLine1: e.target.value }))}
-                      className="w-full rounded px-2 py-1.5 text-sm outline-none"
-                      style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
-                    />
+                    <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">Address *</label>
+                    <Input inputSize="sm" placeholder="123 Main St" value={df.addressLine1}
+                      onChange={(e) => setDf(p => ({ ...p, addressLine1: e.target.value }))} />
                   </div>
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>City *</label>
-                      <input
-                        type="text"
-                        value={df.city}
-                        onChange={(e) => setDf(p => ({ ...p, city: e.target.value }))}
-                        className="w-full rounded px-2 py-1.5 text-sm outline-none"
-                        style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
-                      />
+                      <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">City *</label>
+                      <Input inputSize="sm" value={df.city}
+                        onChange={(e) => setDf(p => ({ ...p, city: e.target.value }))} />
                     </div>
-                    <div style={{ width: 48 }}>
-                      <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>St *</label>
-                      <input
-                        type="text"
-                        maxLength={2}
-                        value={df.state}
-                        onChange={(e) => setDf(p => ({ ...p, state: e.target.value.toUpperCase() }))}
-                        className="w-full rounded px-2 py-1.5 text-sm outline-none text-center"
-                        style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
-                      />
+                    <div className="w-[56px]">
+                      <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">St *</label>
+                      <Input inputSize="sm" maxLength={2} value={df.state} className="text-center"
+                        onChange={(e) => setDf(p => ({ ...p, state: e.target.value.toUpperCase() }))} />
                     </div>
-                    <div style={{ width: 72 }}>
-                      <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>Zip *</label>
-                      <input
-                        type="text"
-                        maxLength={5}
-                        value={df.zip}
-                        onChange={(e) => setDf(p => ({ ...p, zip: e.target.value }))}
-                        className="w-full rounded px-2 py-1.5 text-sm outline-none"
-                        style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
-                      />
+                    <div className="w-[80px]">
+                      <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">Zip *</label>
+                      <Input inputSize="sm" maxLength={5} value={df.zip}
+                        onChange={(e) => setDf(p => ({ ...p, zip: e.target.value }))} />
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>Date *</label>
-                      <input
-                        type="date"
-                        value={df.deliveryDate}
-                        onChange={(e) => setDf(p => ({ ...p, deliveryDate: e.target.value }))}
-                        className="w-full rounded px-2 py-1.5 text-sm outline-none"
-                        style={{
-                          background: '#252521',
-                          border: '1px solid #2e2e2a',
-                          color: '#E8E6E0',
-                          colorScheme: 'dark',
-                        }}
-                      />
+                      <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">Date *</label>
+                      <Input inputSize="sm" type="date" value={df.deliveryDate}
+                        onChange={(e) => setDf(p => ({ ...p, deliveryDate: e.target.value }))} />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>Time window</label>
-                      <select
-                        value={df.timeWindow}
-                        onChange={(e) => setDf(p => ({ ...p, timeWindow: e.target.value as TimeWindow }))}
-                        className="w-full rounded px-2 py-1.5 text-sm outline-none"
-                        style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
-                      >
+                      <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">Time window</label>
+                      <Select selectSize="sm" value={df.timeWindow}
+                        onChange={(e) => setDf(p => ({ ...p, timeWindow: e.target.value as TimeWindow }))}>
                         <option value="morning">Morning</option>
                         <option value="afternoon">Afternoon</option>
                         <option value="evening">Evening</option>
                         <option value="anytime">Anytime</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
-                  <button
+                  <Button
+                    size="sm"
+                    variant={df.installRequested ? 'soft' : 'secondary'}
                     onClick={() => setDf(p => ({ ...p, installRequested: !p.installRequested }))}
-                    className="text-left px-2.5 py-2 rounded text-xs"
-                    style={toggleStyle(df.installRequested)}
+                    className="!justify-start"
                   >
                     {df.installRequested ? '✓ ' : ''}Install requested
-                  </button>
+                  </Button>
                   <div>
-                    <label className="block text-xs mb-1" style={{ color: '#5F5E5A' }}>
-                      Special instructions
-                    </label>
+                    <label className="block text-[10.5px] font-medium uppercase tracking-wider text-fg-muted mb-1">Special instructions</label>
                     <textarea
                       rows={2}
                       placeholder="Gate code, dogs, ring doorbell, etc."
                       value={df.specialInstructions}
                       onChange={(e) => setDf(p => ({ ...p, specialInstructions: e.target.value }))}
-                      className="w-full rounded px-2 py-1.5 text-sm outline-none resize-none"
-                      style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
+                      className="w-full rounded-[var(--radius-md)] px-3 py-2 text-[13px] outline-none resize-none bg-bg-surface border border-border-default text-fg-default placeholder:text-fg-subtle focus-ring focus:border-border-brand transition-[border-color,box-shadow] duration-[140ms] ease-out"
                     />
                   </div>
-                </div>
+                </Card>
               )}
             </section>
 
             {/* Notes */}
             <section>
-              <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-                NOTES
-              </div>
+              <SectionLabel>Notes</SectionLabel>
               <textarea
                 rows={2}
                 placeholder="Any notes for this sale…"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full rounded px-3 py-2 text-sm outline-none resize-none"
-                style={{ background: '#252521', border: '1px solid #2e2e2a', color: '#E8E6E0' }}
+                className="w-full rounded-[var(--radius-md)] px-3 py-2 text-[13px] outline-none resize-none bg-bg-surface border border-border-default text-fg-default placeholder:text-fg-subtle focus-ring focus:border-border-brand transition-[border-color,box-shadow] duration-[140ms] ease-out"
               />
             </section>
           </div>
@@ -736,165 +686,167 @@ export default function POSPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════
-          RIGHT PANEL — Payment calculator
+          RIGHT — Payment calculator
       ══════════════════════════════════════════════════════════════ */}
       {!saleResult && (
         <div
-          className="flex flex-col flex-shrink-0 overflow-y-auto p-4 gap-4"
-          style={{ width: 280 }}
+          className={cn(
+            'flex-col flex-shrink-0 lg:w-[300px] w-full overflow-y-auto p-4 gap-4 bg-bg-surface',
+            'lg:flex',
+            mobileStep === 'pay' ? 'flex' : 'hidden lg:flex',
+          )}
         >
-          {/* Price display */}
-          <div className="rounded-lg p-4" style={{ background: '#252521', border: '1px solid #2e2e2a' }}>
+          <Card variant="surface" padding="md">
             <PriceLine label="Subtotal" value={fmt(subtotalCents)} muted />
             <PriceLine label={`Tax (${(taxRateBps / 100).toFixed(2)}%)`} value={fmt(taxCents)} muted />
-            <div className="border-t my-2" style={{ borderColor: '#2e2e2a' }} />
+            <div className="border-t border-border-subtle my-2" />
             <PriceLine label="Total" value={fmt(totalCents)} bold />
-          </div>
+          </Card>
 
-          {/* Price presets */}
           <div>
-            <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-              PRICE PRESETS
-            </div>
+            <SectionLabel>Price presets</SectionLabel>
             <div className="grid grid-cols-3 gap-1.5">
               {PRICE_PRESETS.map((p) => (
-                <button
+                <Button
                   key={p}
+                  size="sm"
+                  variant={calcRaw === String(p) ? 'soft' : 'secondary'}
                   onClick={() => setCalcRaw(String(p))}
-                  className="py-1.5 rounded text-sm"
-                  style={toggleStyle(calcRaw === String(p))}
+                  className="tabular-nums"
                 >
                   ${p}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
-          {/* Price numpad */}
           <div>
-            <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-              AMOUNT —{' '}
-              <span style={{ color: '#E8E6E0' }}>
-                ${subtotalDollars || '0'}.00
-              </span>
-            </div>
+            <SectionLabel accent={`$${subtotalDollars || '0'}.00`}>Amount</SectionLabel>
             <div className="grid grid-cols-3 gap-1.5">
               {NUMPAD_KEYS.map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setCalcRaw(numpadPress(calcRaw, d))}
-                  className="py-3 rounded text-sm font-medium"
-                  style={{
-                    background: d === 'C' ? '#2a1818' : '#252521',
-                    color: d === 'C' ? '#ef8888' : d === '←' ? '#9FE1CB' : '#E8E6E0',
-                    border: '1px solid #2e2e2a',
-                  }}
-                >
-                  {d}
-                </button>
+                <NumpadKey key={d} digit={d} onPress={(k) => setCalcRaw(numpadPress(calcRaw, k))} />
               ))}
             </div>
           </div>
 
-          {/* Payment method */}
           <div>
-            <div className="text-xs font-medium mb-2 tracking-wide" style={{ color: '#5F5E5A' }}>
-              PAYMENT METHOD
-            </div>
+            <SectionLabel>Payment method</SectionLabel>
             <div className="grid grid-cols-2 gap-1.5">
               {(['cash', 'card', 'venmo', 'zelle'] as const).map((m) => (
-                <button
+                <Button
                   key={m}
+                  variant={payMethod === m ? 'soft' : 'secondary'}
                   onClick={() => setPayMethod(m)}
-                  className="py-2 rounded text-sm font-medium"
-                  style={toggleStyle(payMethod === m)}
                 >
                   {m.charAt(0).toUpperCase() + m.slice(1)}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
-          {/* Cash section */}
           {payMethod === 'cash' && (
-            <div
-              className="rounded-lg p-3 flex flex-col gap-2"
-              style={{ background: '#1e1e1c', border: '1px solid #2e2e2a' }}
-            >
-              <div className="text-xs font-medium tracking-wide" style={{ color: '#5F5E5A' }}>
-                CASH TENDERED
-              </div>
-              <div className="flex flex-wrap gap-1.5">
+            <Card variant="inset" padding="sm" radius="md" className="flex flex-col gap-2">
+              <SectionLabel>Cash tendered</SectionLabel>
+              <div className="flex flex-wrap gap-1.5 -mt-1.5">
                 {CASH_PRESETS.map((p) => (
-                  <button
+                  <Button
                     key={p}
+                    size="sm"
+                    variant={cashRaw === String(p) ? 'soft' : 'secondary'}
                     onClick={() => setCashRaw(String(p))}
-                    className="px-2 py-1 rounded text-xs"
-                    style={toggleStyle(cashRaw === String(p))}
+                    className="tabular-nums"
                   >
                     ${p}
-                  </button>
+                  </Button>
                 ))}
                 {totalCents > 0 && Math.ceil(totalCents / 100) > 300 && (
-                  <button
+                  <Button
+                    size="sm"
+                    variant={cashRaw === String(Math.ceil(totalCents / 100)) ? 'soft' : 'secondary'}
                     onClick={() => setCashRaw(String(Math.ceil(totalCents / 100)))}
-                    className="px-2 py-1 rounded text-xs"
-                    style={toggleStyle(cashRaw === String(Math.ceil(totalCents / 100)))}
                   >
                     Exact
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {NUMPAD_KEYS.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setCashRaw(numpadPress(cashRaw, d))}
-                    className="py-2.5 rounded text-sm"
-                    style={{
-                      background: d === 'C' ? '#2a1818' : '#252521',
-                      color: d === 'C' ? '#ef8888' : d === '←' ? '#9FE1CB' : '#E8E6E0',
-                      border: '1px solid #2e2e2a',
-                    }}
-                  >
-                    {d}
-                  </button>
+                  <NumpadKey key={d} digit={d} onPress={(k) => setCashRaw(numpadPress(cashRaw, k))} />
                 ))}
               </div>
               {cashRaw !== '' && (
-                <div className="text-center text-sm font-semibold pt-1">
+                <div className="text-center text-[14px] font-semibold pt-1 tabular-nums">
                   {change >= 0 ? (
-                    <span style={{ color: '#7CB542' }}>Change: ${change.toFixed(2)}</span>
+                    <span className="text-brand-softfg">Change: ${change.toFixed(2)}</span>
                   ) : (
-                    <span style={{ color: '#ef8888' }}>Short: ${Math.abs(change).toFixed(2)}</span>
+                    <span className="text-error-fg">Short: ${Math.abs(change).toFixed(2)}</span>
                   )}
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
-          {/* Complete Sale */}
-          <button
+          <Button
+            fullWidth
+            size="lg"
+            variant="primary"
+            disabled={!canComplete}
+            loading={createPurchase.isPending}
             onClick={completeSale}
-            disabled={!canComplete || createPurchase.isPending}
-            className="w-full rounded-lg py-3 text-sm font-semibold"
-            style={{
-              background: canComplete ? '#7CB542' : '#252521',
-              color: canComplete ? '#0a1a04' : '#5F5E5A',
-              border: `1px solid ${canComplete ? '#7CB542' : '#2e2e2a'}`,
-              cursor: canComplete && !createPurchase.isPending ? 'pointer' : 'not-allowed',
-              opacity: createPurchase.isPending ? 0.6 : 1,
-            }}
           >
             {createPurchase.isPending ? 'Processing…' : 'Complete Sale'}
-          </button>
+          </Button>
 
           {createPurchase.isError && (
-            <div className="text-xs text-center" style={{ color: '#ef8888' }}>
+            <div className="text-[12px] text-center text-error-fg">
               {createPurchase.error.message}
             </div>
           )}
         </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MOBILE — Bottom tab bar (Customer / Order / Pay)
+      ══════════════════════════════════════════════════════════════ */}
+      {!saleResult && (
+        <nav
+          className="fixed bottom-0 left-0 right-0 z-30 lg:hidden flex bg-bg-surface border-t border-border-default"
+          aria-label="POS sections"
+        >
+          {(
+            [
+              { key: 'customer', label: 'Customer', done: customerDone },
+              { key: 'order',    label: 'Order',    done: orderDone    },
+              { key: 'pay',      label: 'Pay',      done: payDone      },
+            ] as const
+          ).map((tab) => {
+            const active = mobileStep === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setMobileStep(tab.key)}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex-1 py-3 flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium focus-ring transition-colors',
+                  active
+                    ? 'text-brand-softfg border-t-2 border-t-brand'
+                    : 'text-fg-muted border-t-2 border-t-transparent',
+                )}
+              >
+                <span>{tab.label}</span>
+                {tab.done ? (
+                  <span className="text-[11px] leading-none text-success-fg" aria-hidden>✓</span>
+                ) : (
+                  <span
+                    className="block w-1 h-1 rounded-full bg-fg-subtle"
+                    aria-hidden
+                  />
+                )}
+              </button>
+            );
+          })}
+        </nav>
       )}
     </div>
   );

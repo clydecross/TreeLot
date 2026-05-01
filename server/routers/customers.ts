@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { Prisma } from '@/lib/generated/prisma/client';
-import { router, publicProcedure } from '../trpc';
+import { router, staffProcedure } from '../trpc';
 
 type SearchRow = {
   id: string;
@@ -15,15 +16,93 @@ type SearchRow = {
   lastTotalCents: number | null;
 };
 
-export const customersRouter = router({
-  // ── customers.search ──────────────────────────────────────────────────────
-  search: publicProcedure
-    .input(z.object({ query: z.string(), orgId: z.string().uuid() }))
-    .query(async ({ input, ctx }) => {
-      const { query, orgId } = input;
-      const trimmed = query.trim();
+type ListRow = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string | null;
+  city: string | null;
+  state: string | null;
+  purchaseCount: number;
+  lifetimeCents: number;
+  lastPurchaseAt: Date | null;
+  lastTreeType: string | null;
+  lastTreeSize: string | null;
+};
 
-      // Empty query returns nothing (caller shows placeholder)
+export const customersRouter = router({
+  // ── customers.list ────────────────────────────────────────────────────────
+  // Paginated browse — sorted by most recent activity (or lifetime spend).
+  list: staffProcedure
+    .input(
+      z.object({
+        sort:   z.enum(['recent', 'lifetime', 'name']).default('recent'),
+        limit:  z.number().int().min(1).max(200).default(50),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = ctx.user.orgId;
+      const { sort, limit, offset } = input;
+      const orderBySql =
+        sort === 'lifetime'
+          ? Prisma.sql`COALESCE(SUM(p."totalCents"), 0) DESC NULLS LAST`
+          : sort === 'name'
+          ? Prisma.sql`c."lastName" ASC, c."firstName" ASC`
+          : Prisma.sql`MAX(p."purchasedAt") DESC NULLS LAST, c."createdAt" DESC`;
+
+      const rows = await ctx.db.$queryRaw<ListRow[]>`
+        SELECT
+          c.id,
+          c."firstName",
+          c."lastName",
+          c.phone,
+          c.email,
+          c.city,
+          c.state,
+          COUNT(p.id)::int                        AS "purchaseCount",
+          COALESCE(SUM(p."totalCents"), 0)::int   AS "lifetimeCents",
+          MAX(p."purchasedAt")                    AS "lastPurchaseAt",
+          (ARRAY_AGG(p."treeType"      ORDER BY p."purchasedAt" DESC) FILTER (WHERE p.id IS NOT NULL))[1] AS "lastTreeType",
+          (ARRAY_AGG(p."treeSizeRange" ORDER BY p."purchasedAt" DESC) FILTER (WHERE p.id IS NOT NULL))[1] AS "lastTreeSize"
+        FROM customers c
+        LEFT JOIN purchases p ON p."customerId" = c.id
+        WHERE c."orgId" = ${orgId}::uuid
+        GROUP BY c.id, c."firstName", c."lastName", c.phone, c.email, c.city, c.state, c."createdAt"
+        ORDER BY ${orderBySql}
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+
+      const totalRow = await ctx.db.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*)::bigint AS count FROM customers WHERE "orgId" = ${orgId}::uuid
+      `;
+
+      return {
+        rows: rows.map((r) => ({
+          id:             r.id,
+          firstName:      r.firstName,
+          lastName:       r.lastName,
+          phone:          r.phone,
+          email:          r.email,
+          city:           r.city,
+          state:          r.state,
+          purchaseCount:  r.purchaseCount,
+          lifetimeCents:  r.lifetimeCents,
+          lastPurchaseAt: r.lastPurchaseAt?.toISOString() ?? null,
+          lastTreeType:   r.lastTreeType,
+          lastTreeSize:   r.lastTreeSize,
+        })),
+        total: Number(totalRow[0]?.count ?? 0),
+      };
+    }),
+
+  // ── customers.search ──────────────────────────────────────────────────────
+  search: staffProcedure
+    .input(z.object({ query: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const orgId = ctx.user.orgId;
+      const trimmed = input.query.trim();
       if (!trimmed) return [];
 
       const likeParam = `%${trimmed}%`;
@@ -79,11 +158,11 @@ export const customersRouter = router({
     }),
 
   // ── customers.getById ──────────────────────────────────────────────────────
-  getById: publicProcedure
-    .input(z.object({ id: z.string().uuid(), orgId: z.string().uuid() }))
+  getById: staffProcedure
+    .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       const customer = await ctx.db.customer.findFirst({
-        where: { id: input.id, orgId: input.orgId },
+        where: { id: input.id, orgId: ctx.user.orgId },
         include: {
           purchases: {
             orderBy: { seasonYear: 'desc' },
@@ -95,10 +174,9 @@ export const customersRouter = router({
     }),
 
   // ── customers.create ──────────────────────────────────────────────────────
-  create: publicProcedure
+  create: staffProcedure
     .input(
       z.object({
-        orgId:        z.string().uuid(),
         firstName:    z.string().min(1),
         lastName:     z.string().min(1),
         phone:        z.string().min(1),
@@ -113,7 +191,7 @@ export const customersRouter = router({
     .mutation(async ({ input, ctx }) => {
       return ctx.db.customer.create({
         data: {
-          orgId:        input.orgId,
+          orgId:        ctx.user.orgId,
           firstName:    input.firstName,
           lastName:     input.lastName,
           phone:        input.phone,
@@ -128,11 +206,10 @@ export const customersRouter = router({
     }),
 
   // ── customers.update ──────────────────────────────────────────────────────
-  update: publicProcedure
+  update: staffProcedure
     .input(
       z.object({
         id:           z.string().uuid(),
-        orgId:        z.string().uuid(),
         firstName:    z.string().min(1).optional(),
         lastName:     z.string().min(1).optional(),
         phone:        z.string().min(1).optional(),
@@ -145,13 +222,16 @@ export const customersRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, orgId, ...data } = input;
-      // Verify org ownership before mutating
+      const { id, ...data } = input;
+
+      // Verify the customer belongs to the user's org before mutating.
       const existing = await ctx.db.customer.findFirst({
-        where: { id, orgId },
+        where: { id, orgId: ctx.user.orgId },
         select: { id: true },
       });
-      if (!existing) throw new Error('Customer not found');
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+      }
 
       return ctx.db.customer.update({
         where: { id },

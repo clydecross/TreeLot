@@ -1,13 +1,12 @@
-import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
+import { router, staffProcedure } from '../trpc';
 
 export const orgsRouter = router({
-  getById: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ input, ctx }) => {
-      return ctx.db.organization.findFirst({
-        where: { id: input.id },
-        select: { id: true, name: true, taxRateBps: true },
-      });
-    }),
+  // ── orgs.getCurrent ───────────────────────────────────────────────────────
+  // Returns the signed-in user's org. No input — the org is derived from auth.
+  getCurrent: staffProcedure.query(async ({ ctx }) => {
+    return ctx.db.organization.findFirst({
+      where: { id: ctx.user.orgId },
+      select: { id: true, name: true, taxRateBps: true },
+    });
+  }),
 });

@@ -1,13 +1,12 @@
 import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
+import { TRPCError } from '@trpc/server';
+import { router, staffProcedure } from '../trpc';
 
 export const purchasesRouter = router({
-  create: publicProcedure
+  create: staffProcedure
     .input(
       z.object({
         customerId:        z.string().uuid(),
-        locationId:        z.string().uuid(),
-        createdById:       z.string().uuid(),
         seasonYear:        z.number().int().min(2000).max(2100),
         treeType:          z.string().min(1),
         treeTypeName:      z.string().optional(),
@@ -34,7 +33,26 @@ export const purchasesRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const taxCents = Math.round((input.subtotalCents * input.taxRateBps) / 10000);
+      // Staff must be assigned to a location before they can ring up a sale.
+      if (!ctx.user.locationId) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Your account is not assigned to a location.',
+        });
+      }
+      const locationId  = ctx.user.locationId;
+      const createdById = ctx.user.id;
+
+      // Verify the customer belongs to the user's org.
+      const customer = await ctx.db.customer.findFirst({
+        where: { id: input.customerId, orgId: ctx.user.orgId },
+        select: { id: true },
+      });
+      if (!customer) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+      }
+
+      const taxCents   = Math.round((input.subtotalCents * input.taxRateBps) / 10000);
       const totalCents = input.subtotalCents + taxCents;
       const now = new Date();
 
@@ -42,8 +60,8 @@ export const purchasesRouter = router({
         const purchase = await tx.purchase.create({
           data: {
             customerId:        input.customerId,
-            locationId:        input.locationId,
-            createdById:       input.createdById,
+            locationId,
+            createdById,
             seasonYear:        input.seasonYear,
             treeType:          input.treeType,
             treeTypeName:      input.treeTypeName ?? null,
@@ -67,7 +85,7 @@ export const purchasesRouter = router({
             data: {
               purchaseId:          purchase.id,
               customerId:          input.customerId,
-              locationId:          input.locationId,
+              locationId,
               addressLine1:        d.addressLine1,
               city:                d.city,
               state:               d.state,
