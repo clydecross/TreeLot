@@ -7,7 +7,9 @@ import { usersRouter } from './routers/users';
 import { driversRouter } from './routers/drivers';
 import { analyticsRouter } from './routers/analytics';
 import { adminRouter } from './routers/admin';
+import { superadminRouter } from './routers/superadmin';
 import { shiftRouter } from './routers/shift';
+import { taxRouter } from './routers/tax';
 
 export const appRouter = router({
   healthcheck: publicProcedure.query(() => ({ ok: true })),
@@ -19,7 +21,9 @@ export const appRouter = router({
   drivers:    driversRouter,
   analytics:  analyticsRouter,
   admin:      adminRouter,
+  superadmin: superadminRouter,
   shift:      shiftRouter,
+  tax:        taxRouter,
 });
 
 export type AppRouter = typeof appRouter;

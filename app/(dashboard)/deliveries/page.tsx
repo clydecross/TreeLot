@@ -601,6 +601,11 @@ function DeliveryDetail({ detail, drivers, assignDriver, updateStatus }: Deliver
             <div className="text-[12px] leading-relaxed text-fg-default">
               {detail.specialInstructions}
             </div>
+            {detail.purchase.createdBy && (
+              <div className="text-[11px] text-fg-muted mt-1.5">
+                Added by {detail.purchase.createdBy.name}
+              </div>
+            )}
           </Card>
         </div>
       )}

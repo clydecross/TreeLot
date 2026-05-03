@@ -1,5 +1,6 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import { DashboardShell } from './DashboardShell';
 
@@ -9,15 +10,24 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await currentUser();
+  const cookieStore = await cookies();
+  const demoOrgId   = cookieStore.get('superadmin_org')?.value;
+  const demoClerkId = cookieStore.get('superadmin_clerk_id')?.value;
+  const isDemo = !!(demoOrgId && user && demoClerkId === user.id);
 
   const dbUser = user
-    ? await prisma.user.findUnique({
-        where: { clerkId: user.id },
-        select: { id: true, role: true },
-      })
+    ? isDemo
+      ? await prisma.user.findFirst({
+          where: { orgId: demoOrgId },
+          select: { role: true, org: { select: { name: true } }, location: { select: { name: true } } },
+        })
+      : await prisma.user.findUnique({
+          where: { clerkId: user.id },
+          select: { role: true, org: { select: { name: true } }, location: { select: { name: true } } },
+        })
     : null;
 
-  if (user && !dbUser) {
+  if (user && !dbUser && !isDemo) {
     redirect('/onboarding');
   }
 
@@ -25,7 +35,8 @@ export default async function DashboardLayout({
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.emailAddresses[0]?.emailAddress
     : '';
 
-  const role = dbUser?.role ?? null;
+  // In demo mode the superadmin always gets owner-level access to see the full nav.
+  const role = isDemo ? 'owner' : (dbUser?.role ?? null);
 
   const currentTime = new Date().toLocaleString('en-US', {
     timeZone: 'America/Chicago',
@@ -37,13 +48,26 @@ export default async function DashboardLayout({
     hour12: true,
   });
 
+  const orgName      = dbUser?.org?.name      ?? '';
+  const locationName = dbUser?.location?.name ?? '';
+
   return (
-    <DashboardShell
-      role={role}
-      displayName={displayName ?? ''}
-      currentTime={currentTime}
-    >
-      {children}
-    </DashboardShell>
+    <div className="relative">
+      {isDemo && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 bg-amber-500 text-black text-[12px] font-medium">
+          <span>Viewing as <strong>{orgName}</strong></span>
+          <a href="/admin/view/exit" className="underline underline-offset-2">Exit demo view</a>
+        </div>
+      )}
+      <DashboardShell
+        role={role}
+        displayName={displayName ?? ''}
+        currentTime={currentTime}
+        orgName={orgName}
+        locationName={locationName}
+      >
+        {children}
+      </DashboardShell>
+    </div>
   );
 }

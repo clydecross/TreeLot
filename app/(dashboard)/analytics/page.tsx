@@ -13,6 +13,7 @@ Chart.register(...registerables);
 Chart.defaults.color = '#5F5E5A';
 Chart.defaults.borderColor = '#2e2e2a';
 Chart.defaults.font.family = 'inherit';
+Chart.defaults.plugins.legend.labels.color = '#2D2C29';
 
 
 function fmt(cents: number): string {
@@ -116,8 +117,6 @@ function AnalyticsContent() {
   const ltvQ = trpc.analytics.ltvDistribution.useQuery();
 
   const forecastQ = trpc.analytics.forecast.useQuery({ seasonYear });
-
-  const staffQ = trpc.analytics.staffProductivity.useQuery({ dateFrom, dateTo });
 
   const seasonRevenueChart = useMemo<ChartData<'bar' | 'line', number[], string>>(() => {
     const data = seasonComparisonQ.data ?? [];
@@ -258,7 +257,7 @@ function AnalyticsContent() {
                 maintainAspectRatio: false,
                 plugins: {
                   legend: {
-                    labels: { color: '#E8E6E0', font: { size: 12 } },
+                    labels: { color: '#2D2C29', font: { size: 12, weight: 'bold' } },
                   },
                   tooltip: {
                     callbacks: {
@@ -309,7 +308,7 @@ function AnalyticsContent() {
               </tr>
             </thead>
             <tbody>
-              {(seasonComparisonQ.data ?? []).map((s, i) => (
+              {[...(seasonComparisonQ.data ?? [])].reverse().map((s, i) => (
                 <tr
                   key={s.seasonYear}
                   className={i % 2 === 0 ? 'bg-bg-surface' : 'bg-bg-inset'}
@@ -336,7 +335,7 @@ function AnalyticsContent() {
 
         {/* Mobile: card stack */}
         <div className="lg:hidden flex flex-col gap-2 p-3">
-          {(seasonComparisonQ.data ?? []).map((s) => (
+          {[...(seasonComparisonQ.data ?? [])].reverse().map((s) => (
             <div
               key={s.seasonYear}
               className="flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-border-default bg-bg-inset p-3"
@@ -481,75 +480,6 @@ function AnalyticsContent() {
         </div>
       </div>
 
-      {/* STAFF PRODUCTIVITY */}
-      <Card padding="md" className="mt-4">
-        <SectionTitle>Staff productivity (this season)</SectionTitle>
-
-        {/* Desktop: table */}
-        <div className="hidden lg:block overflow-x-auto -mx-4">
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr>
-                <th className={thHeader}>Rank</th>
-                <th className={thHeader}>Name</th>
-                <th className={thHeader}>Transactions</th>
-                <th className={thHeader}>Revenue</th>
-                <th className={thHeader}>AOV</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(staffQ.data ?? []).map((s, i) => (
-                <tr
-                  key={s.userId}
-                  className={i % 2 === 0 ? 'bg-bg-surface' : 'bg-bg-inset'}
-                >
-                  <td className={tdCell}>{i + 1}</td>
-                  <td className={tdCell}>{s.name}</td>
-                  <td className={tdCell}>{s.transactions}</td>
-                  <td className={tdCell}>{fmt(s.revenueCents)}</td>
-                  <td className={tdCell}>{fmt(s.avgOrderCents)}</td>
-                </tr>
-              ))}
-              {(staffQ.data ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={5} className={cn(tdCell, 'text-center text-fg-muted')}>
-                    No staff sales recorded this season.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile: card stack */}
-        <div className="lg:hidden flex flex-col gap-2">
-          {(staffQ.data ?? []).map((s, i) => (
-            <div
-              key={s.userId}
-              className="flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-border-default bg-bg-inset p-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="text-[14px] font-semibold text-fg-default">
-                  #{i + 1} {s.name}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-                <div className="text-fg-muted">Transactions</div>
-                <div className="text-fg-default text-right">{s.transactions}</div>
-                <div className="text-fg-muted">Revenue</div>
-                <div className="text-fg-default text-right">{fmt(s.revenueCents)}</div>
-                <div className="text-fg-muted">AOV</div>
-                <div className="text-fg-default text-right">{fmt(s.avgOrderCents)}</div>
-              </div>
-            </div>
-          ))}
-          {(staffQ.data ?? []).length === 0 && (
-            <div className="p-6 text-center text-fg-muted text-[13px]">
-              No staff sales recorded this season.
-            </div>
-          )}
-        </div>
-      </Card>
     </div>
   );
 }

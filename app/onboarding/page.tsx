@@ -166,7 +166,35 @@ function CreateOrgForm({
   const [locationName, setLocationName]     = useState('Main Lot');
   const [locationAddress, setLocationAddr]  = useState('');
   const [timezone, setTimezone]             = useState(defaultTimezone);
-  const [taxRatePct, setTaxRatePct]         = useState('8.25');
+  const [taxRatePct, setTaxRatePct]         = useState('');
+  // Tracks whether the user has manually edited the tax field. Once they
+  // have, we stop auto-overwriting it on subsequent address edits.
+  const [taxManuallyEdited, setTaxManuallyEdited] = useState(false);
+
+  // Extract a 5-digit ZIP from the address string. Falls back to null when
+  // not found (e.g. address still being typed). Tax lookup only fires when
+  // a valid ZIP is present.
+  const extractedZip = (() => {
+    const m = locationAddress.match(/\b(\d{5})(?:-\d{4})?\b/);
+    return m ? m[1] : null;
+  })();
+
+  const taxLookup = trpc.tax.lookupRate.useQuery(
+    { zip: extractedZip ?? '' },
+    {
+      enabled: extractedZip !== null && extractedZip.length === 5,
+      staleTime: Infinity,    // cache by ZIP so re-typing doesn't re-fetch
+      retry: false,           // a bad ZIP / TaxJar outage shouldn't retry-storm
+    }
+  );
+
+  // Auto-fill tax rate when lookup succeeds — but only if the user hasn't
+  // manually overridden it.
+  useEffect(() => {
+    if (taxLookup.data && !taxManuallyEdited) {
+      setTaxRatePct(taxLookup.data.combinedRatePct.toFixed(2));
+    }
+  }, [taxLookup.data, taxManuallyEdited]);
 
   const createOrg = trpc.users.createOrg.useMutation({
     onSuccess: () => onCreated(),
@@ -250,13 +278,46 @@ function CreateOrgForm({
             min="0"
             max="20"
             value={taxRatePct}
-            onChange={(e) => setTaxRatePct(e.target.value)}
+            onChange={(e) => {
+              setTaxRatePct(e.target.value);
+              setTaxManuallyEdited(true);
+            }}
+            placeholder={
+              taxLookup.isFetching ? 'Looking up…' : 'e.g. 8.25'
+            }
             trailing={<span className="text-fg-muted">%</span>}
             required
           />
-          <div className="text-xs mt-1 text-fg-muted">
-            Stored as {taxValid ? Math.round(taxNum * 100) : 0} basis points
-          </div>
+          {/* Status line under the tax field */}
+          {taxLookup.isFetching && (
+            <div className="text-xs mt-1 text-fg-muted">
+              Looking up tax rate for ZIP {extractedZip}…
+            </div>
+          )}
+          {taxLookup.data && !taxManuallyEdited && (
+            <div className="text-xs mt-1 text-fg-muted">
+              Auto-filled from {taxLookup.data.locationDescription} (ZIP {taxLookup.data.zip}).
+              Verify with your accountant — some states classify Christmas trees
+              as agricultural products and may exempt them.
+            </div>
+          )}
+          {taxLookup.data && taxManuallyEdited && (
+            <div className="text-xs mt-1 text-fg-muted">
+              Standard rate for {taxLookup.data.locationDescription} is{' '}
+              {taxLookup.data.combinedRatePct.toFixed(2)}%. Stored as{' '}
+              {taxValid ? Math.round(taxNum * 100) : 0} basis points.
+            </div>
+          )}
+          {taxLookup.error && (
+            <div className="text-xs mt-1 text-fg-muted">
+              Couldn&apos;t auto-fill — please enter your local sales tax rate manually.
+            </div>
+          )}
+          {!taxLookup.data && !taxLookup.isFetching && !taxLookup.error && extractedZip === null && locationAddress.length > 0 && (
+            <div className="text-xs mt-1 text-fg-muted">
+              Tip: include the 5-digit ZIP in your address and we&apos;ll auto-fill the tax rate.
+            </div>
+          )}
         </Field>
 
         {createOrg.error && (

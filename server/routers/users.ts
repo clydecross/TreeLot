@@ -45,7 +45,9 @@ export const usersRouter = router({
         location:   { select: { id: true, name: true, address: true, timezone: true } },
       },
     });
-    return user;
+    if (!user) return null;
+    // Use ctx.user.role so demo-mode override (owner) flows through to the UI.
+    return { ...user, role: ctx.user.role };
   }),
 
   // ── users.bootstrap ───────────────────────────────────────────────────────

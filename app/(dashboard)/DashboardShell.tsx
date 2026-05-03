@@ -11,10 +11,12 @@ type DashboardShellProps = {
   role: Role | null;
   displayName: string;
   currentTime: string;
+  orgName: string;
+  locationName: string;
   children: React.ReactNode;
 };
 
-export function DashboardShell({ role, displayName, currentTime, children }: DashboardShellProps) {
+export function DashboardShell({ role, displayName, currentTime, orgName, locationName, children }: DashboardShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
 
@@ -53,10 +55,10 @@ export function DashboardShell({ role, displayName, currentTime, children }: Das
         </div>
 
         <span className="hidden sm:inline md:hidden text-[12px] text-mid-green bg-deep-green px-3 py-[3px] rounded-full whitespace-nowrap">
-          Dallas, TX
+          {orgName}
         </span>
         <span className="hidden md:inline text-[12px] text-mid-green bg-deep-green px-3 py-[3px] rounded-full whitespace-nowrap">
-          Main St Lot — Dallas, TX
+          {orgName}{locationName ? ` — ${locationName}` : ''}
         </span>
 
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">

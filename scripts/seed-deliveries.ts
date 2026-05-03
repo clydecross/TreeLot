@@ -3,12 +3,9 @@ import { config } from 'dotenv';
 config();
 config({ path: '.env.local', override: true });
 
-import { neonConfig } from '@neondatabase/serverless';
-import { PrismaNeon } from '@prisma/adapter-neon';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import ws from 'ws';
 
-neonConfig.webSocketConstructor = ws;
 
 const TEST_ORG_ID      = 'e82e886b-842a-44fc-9a0b-91821cf8e6e5';
 const TEST_LOCATION_ID = '728060d6-4239-4622-ae0d-1f0b6fbb5d9a';
@@ -64,7 +61,7 @@ function todayIso(): string {
 }
 
 async function main() {
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
   const prisma  = new PrismaClient({ adapter });
 
   const customers = await prisma.customer.findMany({

@@ -172,8 +172,12 @@ export const deliveriesRouter = router({
         where: { id: input.id, location: { orgId: ctx.user.orgId } },
         include: {
           customer: true,
-          purchase: true,
-          driver:   { select: { id: true, name: true } },
+          purchase: {
+            include: {
+              createdBy: { select: { id: true, name: true } },
+            },
+          },
+          driver: { select: { id: true, name: true } },
         },
       });
     }),

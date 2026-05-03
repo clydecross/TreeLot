@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { ZodError } from 'zod';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 
 export type AppUser = {
@@ -20,19 +21,28 @@ export async function createContext(): Promise<Context> {
   try {
     const { userId: clerkId } = await auth();
     if (clerkId) {
-      const dbUser = await prisma.user.findUnique({
-        where: { clerkId },
-        select: {
-          id: true,
-          clerkId: true,
-          orgId: true,
-          locationId: true,
-          role: true,
-          name: true,
-          email: true,
-        },
-      });
-      if (dbUser) user = dbUser;
+      // Superadmin demo-view: if the cookie matches this Clerk session, impersonate
+      // the first owner of the selected org so the full dashboard renders as that lot.
+      const cookieStore = await cookies();
+      const demoOrgId  = cookieStore.get('superadmin_org')?.value;
+      const demoClerkId = cookieStore.get('superadmin_clerk_id')?.value;
+
+      if (demoOrgId && demoClerkId === clerkId) {
+        const orgUser = await prisma.user.findFirst({
+          where: { orgId: demoOrgId },
+          select: { id: true, clerkId: true, orgId: true, locationId: true, role: true, name: true, email: true },
+        });
+        // Override role to owner so the superadmin sees all nav items and data.
+        if (orgUser) user = { ...orgUser, role: 'owner' };
+      }
+
+      if (!user) {
+        const dbUser = await prisma.user.findUnique({
+          where: { clerkId },
+          select: { id: true, clerkId: true, orgId: true, locationId: true, role: true, name: true, email: true },
+        });
+        if (dbUser) user = dbUser;
+      }
     }
   } catch {
     // auth() throws outside request scope or for /driver public routes — ignore
@@ -78,3 +88,25 @@ export const ownerProcedure   = t.procedure.use(requireRole('owner'));
 export const managerProcedure = t.procedure.use(requireRole('owner', 'manager'));
 export const staffProcedure   = t.procedure.use(requireRole('owner', 'manager', 'staff'));
 export const driverProcedure  = t.procedure.use(requireRole('driver'));
+
+const isSuperAdmin = t.middleware(async ({ ctx, next }) => {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ADMIN_EMAIL not configured' });
+
+  const { userId: clerkId } = await auth();
+  if (!clerkId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+  const client = await clerkClient();
+  const clerkUser = await client.users.getUser(clerkId);
+  const primaryEmail = clerkUser.emailAddresses
+    .find(e => e.id === clerkUser.primaryEmailAddressId)
+    ?.emailAddress;
+
+  if (primaryEmail?.toLowerCase() !== adminEmail.toLowerCase()) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Super-admin access only' });
+  }
+
+  return next({ ctx });
+});
+
+export const superadminProcedure = t.procedure.use(isSuperAdmin);

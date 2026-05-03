@@ -1,15 +1,14 @@
-import { neonConfig } from '@neondatabase/serverless';
-import { PrismaNeon } from '@prisma/adapter-neon';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './generated/prisma/client';
-import ws from 'ws';
 
-// Neon serverless driver requires WebSockets in non-edge Node.js environments
-neonConfig.webSocketConstructor = ws;
+// Standard node-postgres driver — works with any Postgres host (Supabase,
+// AWS RDS, self-hosted). Uses the pooled connection string at runtime.
+// Migrations use the DIRECT_URL — see prisma/schema.prisma.
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createPrismaClient() {
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
   return new PrismaClient({ adapter });
 }
 
