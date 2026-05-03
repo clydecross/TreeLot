@@ -52,8 +52,9 @@ export function DashboardShell({ role, displayName, currentTime, orgName, locati
               <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
+          <Link href="/pos" className="hidden lg:block text-[15px] font-medium text-chrome-fg tracking-tight">TreeLot</Link>
         </div>
-        <Link href="/pos" className="absolute left-1/2 -translate-x-1/2 text-[15px] font-medium text-chrome-fg tracking-tight">TreeLot</Link>
+        <Link href="/pos" className="lg:hidden absolute left-1/2 -translate-x-1/2 text-[15px] font-medium text-chrome-fg tracking-tight">TreeLot</Link>
 
         <span className="hidden sm:inline md:hidden text-[12px] text-mid-green bg-deep-green px-3 py-[3px] rounded-full whitespace-nowrap">
           {orgName}
