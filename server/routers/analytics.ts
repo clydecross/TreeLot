@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cookies } from 'next/headers';
 import { router, managerProcedure, ownerProcedure } from '../trpc';
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -560,7 +561,10 @@ export const analyticsRouter = router({
       const lastEnd     = `${seasonYear - 1}-12-24`;
 
       // "Same period" = same MM-DD in prior year, today (UTC).
-      const today  = new Date();
+      // In demo/off-season mode, pretend it's Dec 15 so pace metrics are meaningful.
+      const cookieStore = await cookies();
+      const isDemo = cookieStore.get('demo_mode')?.value === '1';
+      const today  = isDemo ? new Date(`${seasonYear}-12-15T12:00:00Z`) : new Date();
       const todayStr     = ymd(today);
       const mmdd         = todayStr.slice(5);          // "MM-DD"
       const lastSamePeriodEnd = `${seasonYear - 1}-${mmdd}`;

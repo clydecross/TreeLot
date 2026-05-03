@@ -37,9 +37,9 @@ export function DashboardShell({ role, displayName, currentTime, orgName, locati
   }, [drawerOpen]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-bg-app text-fg-default">
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-bg-app text-fg-default">
       {/* Top bar */}
-      <header className="safe-area-inset-top h-[46px] flex items-center justify-between px-3 sm:px-5 flex-shrink-0 bg-chrome-topbar gap-2">
+      <header className="relative safe-area-inset-top h-[46px] flex items-center justify-between px-3 sm:px-5 flex-shrink-0 bg-chrome-topbar gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
@@ -52,8 +52,8 @@ export function DashboardShell({ role, displayName, currentTime, orgName, locati
               <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-          <Link href="/pos" className="text-[15px] font-medium text-chrome-fg tracking-tight">TreeLot</Link>
         </div>
+        <Link href="/pos" className="absolute left-1/2 -translate-x-1/2 text-[15px] font-medium text-chrome-fg tracking-tight">TreeLot</Link>
 
         <span className="hidden sm:inline md:hidden text-[12px] text-mid-green bg-deep-green px-3 py-[3px] rounded-full whitespace-nowrap">
           {orgName}

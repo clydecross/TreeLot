@@ -337,7 +337,7 @@ export default function SalesPage() {
                     plugins: {
                       legend: {
                         position: 'right',
-                        labels: { color: '#E8E6E0', font: { size: 12 } },
+                        labels: { color: '#5F5E5A', font: { size: 12 } },
                       },
                       tooltip: {
                         callbacks: {
