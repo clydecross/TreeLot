@@ -122,7 +122,7 @@ export default function POSPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Mobile step (only used at < lg) ─────────────────────────────
-  const [mobileStep, setMobileStep] = useState<MobileStep>('customer');
+  const [mobileStep, setMobileStep] = useState<MobileStep>('order');
 
   // ── Customer search ──────────────────────────────────────────────
   const [query,      setQuery]      = useState('');

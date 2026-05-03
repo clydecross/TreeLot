@@ -9,8 +9,30 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore  = await cookies();
+  const isDemoPublic = cookieStore.get('demo_mode')?.value === '1';
+  const DEMO_ORG_ID  = process.env.DEMO_ORG_ID ?? 'e82e886b-842a-44fc-9a0b-91821cf8e6e5';
+
+  // Public /demo mode — skip Clerk entirely, render as demo org owner.
+  if (isDemoPublic) {
+    const demoDbUser = await prisma.user.findFirst({
+      where: { orgId: DEMO_ORG_ID },
+      select: { org: { select: { name: true } }, location: { select: { name: true } } },
+    });
+    const orgName      = demoDbUser?.org?.name      ?? 'Demo';
+    const locationName = demoDbUser?.location?.name ?? '';
+    const currentTime  = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Chicago', weekday: 'short', month: 'short',
+      day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+    return (
+      <DashboardShell role="owner" displayName="" currentTime={currentTime} orgName={orgName} locationName={locationName}>
+        {children}
+      </DashboardShell>
+    );
+  }
+
   const user = await currentUser();
-  const cookieStore = await cookies();
   const demoOrgId   = cookieStore.get('superadmin_org')?.value;
   const demoClerkId = cookieStore.get('superadmin_clerk_id')?.value;
   const isDemo = !!(demoOrgId && user && demoClerkId === user.id);
@@ -35,7 +57,7 @@ export default async function DashboardLayout({
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.emailAddresses[0]?.emailAddress
     : '';
 
-  // In demo mode the superadmin always gets owner-level access to see the full nav.
+  // Superadmin demo-view always gets owner-level access to see the full nav.
   const role = isDemo ? 'owner' : (dbUser?.role ?? null);
 
   const currentTime = new Date().toLocaleString('en-US', {

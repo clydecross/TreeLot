@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { SidebarNav } from './SidebarNav';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
@@ -51,7 +52,7 @@ export function DashboardShell({ role, displayName, currentTime, orgName, locati
               <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-          <span className="text-[15px] font-medium text-chrome-fg tracking-tight">TreeLot</span>
+          <Link href="/pos" className="text-[15px] font-medium text-chrome-fg tracking-tight">TreeLot</Link>
         </div>
 
         <span className="hidden sm:inline md:hidden text-[12px] text-mid-green bg-deep-green px-3 py-[3px] rounded-full whitespace-nowrap">
