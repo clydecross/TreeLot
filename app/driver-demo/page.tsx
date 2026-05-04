@@ -46,52 +46,52 @@ type NavScreen =
 const DEMO_STOPS: Stop[] = [
   {
     id: '1', order: 1, status: 'scheduled',
-    customer: { name: 'Patricia Moore', phone: '(615) 555-0182' },
-    address: '2847 Belmont Blvd', city: 'Nashville', state: 'TN', zip: '37212',
+    customer: { name: 'Patricia Moore', phone: '(214) 555-0182' },
+    address: '4521 Beverly Dr', city: 'Highland Park', state: 'TX', zip: '75205',
     tree: 'Fraser Fir', size: "7–8'",
     stand: true, lights: true, install: false,
     window: '10 am – 12 pm',
-    instructions: 'Back gate, code is 2847. Leave tree on covered porch.',
-    distanceToNext: '1.2 mi', etaToNext: '~4 min',
+    instructions: 'Side gate on the left. Code is 4521. Leave tree on the covered back porch.',
+    distanceToNext: '3.8 mi', etaToNext: '~9 min',
     deliveredAt: null, issueReason: null, driverNotes: null,
   },
   {
     id: '2', order: 2, status: 'scheduled',
-    customer: { name: 'Mike & Dana Chen', phone: '(615) 555-0374' },
-    address: '1435 Chickering Rd', city: 'Nashville', state: 'TN', zip: '37215',
+    customer: { name: 'Mike & Dana Chen', phone: '(214) 555-0374' },
+    address: '6814 Lakewood Blvd', city: 'Dallas', state: 'TX', zip: '75214',
     tree: 'Douglas Fir', size: "6–7'",
     stand: true, lights: false, install: false,
     window: '12 pm – 2 pm',
     instructions: null,
-    distanceToNext: '2.8 mi', etaToNext: '~7 min',
+    distanceToNext: '2.1 mi', etaToNext: '~6 min',
     deliveredAt: null, issueReason: null, driverNotes: null,
   },
   {
     id: '3', order: 3, status: 'scheduled',
-    customer: { name: 'The Williams Family', phone: '(615) 555-0591' },
-    address: '4521 Harding Pike', city: 'Nashville', state: 'TN', zip: '37205',
+    customer: { name: 'The Williams Family', phone: '(214) 555-0591' },
+    address: '3906 Armstrong Pkwy', city: 'Highland Park', state: 'TX', zip: '75205',
     tree: 'Fraser Fir', size: "8–9'",
     stand: true, lights: true, install: true,
     window: '12 pm – 4 pm',
-    instructions: 'Dog in backyard — use front door. Ring doorbell twice.',
-    distanceToNext: '1.6 mi', etaToNext: '~5 min',
+    instructions: 'Large dog in the backyard — use the front door only. Ring the bell twice.',
+    distanceToNext: '4.2 mi', etaToNext: '~11 min',
     deliveredAt: null, issueReason: null, driverNotes: null,
   },
   {
     id: '4', order: 4, status: 'scheduled',
-    customer: { name: 'Robert & Mary Patel', phone: '(615) 555-0248' },
-    address: '3301 West End Ave', city: 'Nashville', state: 'TN', zip: '37203',
+    customer: { name: 'Robert & Mary Patel', phone: '(214) 555-0248' },
+    address: '2200 Swiss Ave', city: 'Dallas', state: 'TX', zip: '75204',
     tree: 'Canaan Fir', size: "5–6'",
     stand: false, lights: false, install: false,
     window: '3 pm – 5 pm',
     instructions: null,
-    distanceToNext: '4.2 mi', etaToNext: '~10 min',
+    distanceToNext: '5.6 mi', etaToNext: '~14 min',
     deliveredAt: null, issueReason: null, driverNotes: null,
   },
   {
     id: '5', order: 5, status: 'scheduled',
-    customer: { name: 'Thompson Residence', phone: '(615) 555-0763' },
-    address: '5510 Oak Hill Rd', city: 'Brentwood', state: 'TN', zip: '37027',
+    customer: { name: 'Thompson Residence', phone: '(972) 555-0763' },
+    address: '9401 Midway Rd', city: 'Dallas', state: 'TX', zip: '75220',
     tree: 'Noble Fir', size: "9–10'",
     stand: true, lights: false, install: true,
     window: '4 pm – 6 pm',
@@ -552,7 +552,7 @@ function BriefingScreen({
           <div>
             <div className="text-[12px] font-semibold text-[#706D65] uppercase tracking-widest mb-1">Mon, Dec 15</div>
             <div className="text-[28px] font-bold text-[#1A1A16]">Jake M.</div>
-            <div className="text-[15px] text-[#706D65] mt-0.5">Nashville &amp; Brentwood route</div>
+            <div className="text-[15px] text-[#706D65] mt-0.5">Highland Park &amp; Dallas route</div>
           </div>
           <button
             onClick={onMenu}
@@ -1114,7 +1114,7 @@ function CompleteScreen({ stops, onReset }: { stops: Stop[]; onReset: () => void
             )}
             <div className="flex justify-between items-center h-[56px]">
               <span className="text-[17px] text-[#4A4740]">Route</span>
-              <span className="text-[16px] font-semibold text-[#4A4740]">Nashville &amp; Brentwood</span>
+              <span className="text-[16px] font-semibold text-[#4A4740]">Highland Park &amp; Dallas</span>
             </div>
           </div>
         </Card>
