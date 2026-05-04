@@ -2,6 +2,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
+import { readImpersonationTarget } from '@/lib/superadmin-impersonation';
 import { DashboardShell } from './DashboardShell';
 
 export default async function DashboardLayout({
@@ -33,14 +34,16 @@ export default async function DashboardLayout({
   }
 
   const user = await currentUser();
-  const demoOrgId   = cookieStore.get('superadmin_org')?.value;
-  const demoClerkId = cookieStore.get('superadmin_clerk_id')?.value;
-  const isDemo = !!(demoOrgId && user && demoClerkId === user.id);
+  // Superadmin "view as another lot": fully gated by readImpersonationTarget,
+  // which re-runs the ADMIN_EMAIL check on every render — cookies alone are
+  // forgeable.
+  const impersonateOrgId = await readImpersonationTarget(user?.id);
+  const isDemo = !!impersonateOrgId;
 
   const dbUser = user
     ? isDemo
       ? await prisma.user.findFirst({
-          where: { orgId: demoOrgId },
+          where: { orgId: impersonateOrgId },
           select: { role: true, org: { select: { name: true } }, location: { select: { name: true } } },
         })
       : await prisma.user.findUnique({

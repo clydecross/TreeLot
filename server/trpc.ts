@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
+import { readImpersonationTarget } from '@/lib/superadmin-impersonation';
 
 export type AppUser = {
   id: string;
@@ -34,14 +35,14 @@ export async function createContext(): Promise<Context> {
 
     const { userId: clerkId } = await auth();
     if (clerkId) {
-      // Superadmin demo-view: if the cookie matches this Clerk session, impersonate
-      // the first user of the selected org so the full dashboard renders as that lot.
-      const demoOrgId   = cookieStore.get('superadmin_org')?.value;
-      const demoClerkId = cookieStore.get('superadmin_clerk_id')?.value;
-
-      if (demoOrgId && demoClerkId === clerkId) {
+      // Superadmin "view as another lot": only honored after a fresh
+      // ADMIN_EMAIL re-check on the current Clerk session. The cookies
+      // alone are forgeable — see readImpersonationTarget for the full
+      // gate.
+      const impersonateOrgId = await readImpersonationTarget(clerkId);
+      if (impersonateOrgId) {
         const orgUser = await prisma.user.findFirst({
-          where: { orgId: demoOrgId },
+          where: { orgId: impersonateOrgId },
           select: { id: true, clerkId: true, orgId: true, locationId: true, role: true, name: true, email: true },
         });
         if (orgUser) user = { ...orgUser, role: 'owner' };
