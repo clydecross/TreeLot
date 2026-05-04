@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/cn';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -157,16 +157,24 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   );
 }
 
-function ProgressStrip({ stops }: { stops: Stop[] }) {
+function ProgressStrip({ stops, onViewRoute }: { stops: Stop[]; onViewRoute: () => void }) {
   const delivered = stops.filter(s => s.status === 'delivered').length;
   const current   = stops.find(s => s.status === 'out_for_delivery');
   const stopNum   = current?.order ?? (delivered + 1);
   const pct       = (delivered / stops.length) * 100;
   return (
     <div className="bg-white border-b border-[#D8D3C8] sticky top-0 z-10">
-      <div className="max-w-[430px] mx-auto px-4 pt-3 pb-2 flex justify-between items-center">
-        <span className="text-[14px] font-semibold text-[#706D65]">Stop {stopNum} of {stops.length}</span>
-        <span className="text-[14px] font-semibold text-[#2B6318]">{delivered} delivered</span>
+      <div className="max-w-[430px] mx-auto px-3 pt-2.5 pb-2 flex items-center gap-2">
+        <button
+          onClick={onViewRoute}
+          className="flex items-center gap-1 text-[#2B6318] text-[13px] font-semibold whitespace-nowrap flex-shrink-0 h-[32px] px-2 rounded-lg hover:bg-[#E6F2DF] transition-colors"
+        >
+          ← Route
+        </button>
+        <div className="flex-1 flex justify-between items-center">
+          <span className="text-[13px] font-semibold text-[#706D65]">Stop {stopNum} of {stops.length}</span>
+          <span className="text-[13px] font-semibold text-[#2B6318]">{delivered} delivered</span>
+        </div>
       </div>
       <div className="h-[3px] bg-[#EDE9E0]">
         <div className="h-[3px] bg-[#2B6318] transition-all duration-500" style={{ width: `${pct}%` }} />
@@ -349,10 +357,42 @@ function MenuDrawer({ onClose, onReset }: { onClose: () => void; onReset: () => 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export default function DriverDemoPage() {
-  const [stops,    setStops]   = useState<Stop[]>(DEMO_STOPS.map(s => ({ ...s })));
-  const [screen,   setScreen]  = useState<NavScreen>({ name: 'select' });
-  const [menuOpen, setMenu]    = useState(false);
-  const [note,     setNote]    = useState('');
+  const [stops,       setStops]  = useState<Stop[]>(DEMO_STOPS.map(s => ({ ...s })));
+  // Stack-based navigation — each forward move pushes, back pops.
+  const [stack,       setStack]  = useState<NavScreen[]>([{ name: 'select' }]);
+  const [menuOpen,    setMenu]   = useState(false);
+  const [note,        setNote]   = useState('');
+
+  const screen = stack[stack.length - 1]!;
+
+  // ── History API wiring ───────────────────────────────────────────────────
+  // Push a dummy entry per navigation so the phone's back button fires
+  // popstate instead of leaving the page entirely.
+
+  function push(to: NavScreen) {
+    setStack(prev => [...prev, to]);
+    window.history.pushState({ tl: to.name }, '');
+  }
+
+  // After irreversible actions (delivered, issue) replace the forward stack
+  // so back goes to the route overview, not the confirm screen.
+  function pushAfterAction(to: NavScreen) {
+    setStack([{ name: 'briefing' }, to]);
+    window.history.pushState({ tl: to.name }, '');
+  }
+
+  function goBack() {
+    setStack(prev => (prev.length <= 1 ? prev : prev.slice(0, -1)));
+  }
+
+  // Seed an initial history entry on mount so the first popstate works.
+  useEffect(() => {
+    window.history.replaceState({ tl: 'select' }, '');
+    window.addEventListener('popstate', goBack);
+    return () => window.removeEventListener('popstate', goBack);
+  }, []); // goBack uses functional setState — safe with empty deps
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
   function getStop(id: string) { return stops.find(s => s.id === id)!; }
 
@@ -366,46 +406,55 @@ export default function DriverDemoPage() {
     setStops(prev => prev.map(s => s.id === id ? { ...s, ...update } : s));
   }
 
+  // ── Actions ───────────────────────────────────────────────────────────────
+
   function startRoute() {
     const first = stops[0]!;
     patch(first.id, { status: 'out_for_delivery' });
-    setScreen({ name: 'en_route', stopId: first.id });
+    push({ name: 'en_route', stopId: first.id });
   }
 
   function headToNext(fromId: string) {
     const next = nextUp(fromId);
     if (!next) {
-      setScreen({ name: 'complete' });
+      push({ name: 'complete' });
     } else {
       patch(next.id, { status: 'out_for_delivery' });
-      setScreen({ name: 'en_route', stopId: next.id });
+      push({ name: 'en_route', stopId: next.id });
     }
   }
 
   function confirmDelivery(id: string) {
     patch(id, { status: 'delivered', deliveredAt: nowTime(), driverNotes: note || null });
     setNote('');
-    setScreen({ name: 'success', stopId: id });
+    pushAfterAction({ name: 'success', stopId: id });
   }
 
   function reportIssue(id: string, reason: string, notes: string) {
     patch(id, { status: 'failed', issueReason: reason, driverNotes: notes || null });
-    setScreen({ name: 'success', stopId: id });
+    pushAfterAction({ name: 'success', stopId: id });
   }
 
   function resetDemo() {
     setStops(DEMO_STOPS.map(s => ({ ...s })));
-    setScreen({ name: 'select' });
+    setStack([{ name: 'select' }]);
     setMenu(false);
     setNote('');
+    window.history.replaceState({ tl: 'select' }, '');
   }
 
-  // Screen dispatch
+  const viewRoute = () => {
+    setStack([{ name: 'briefing' }]);
+    window.history.replaceState({ tl: 'briefing' }, '');
+  };
+
+  // ── Screen dispatch ───────────────────────────────────────────────────────
+
   let body: React.ReactNode;
   const s = screen;
 
   if (s.name === 'select') {
-    body = <SelectScreen onSelect={() => setScreen({ name: 'briefing' })} />;
+    body = <SelectScreen onSelect={() => push({ name: 'briefing' })} />;
 
   } else if (s.name === 'briefing') {
     body = (
@@ -421,7 +470,8 @@ export default function DriverDemoPage() {
       <EnRouteScreen
         stop={getStop(s.stopId)}
         stops={stops}
-        onArrive={() => setScreen({ name: 'at_stop', stopId: s.stopId })}
+        onArrive={() => push({ name: 'at_stop', stopId: s.stopId })}
+        onViewRoute={viewRoute}
         onMenu={() => setMenu(true)}
       />
     );
@@ -431,8 +481,9 @@ export default function DriverDemoPage() {
       <AtStopScreen
         stop={getStop(s.stopId)}
         stops={stops}
-        onChecklist={() => setScreen({ name: 'checklist', stopId: s.stopId })}
-        onIssue={() => setScreen({ name: 'issue', stopId: s.stopId })}
+        onChecklist={() => push({ name: 'checklist', stopId: s.stopId })}
+        onIssue={() => push({ name: 'issue', stopId: s.stopId })}
+        onViewRoute={viewRoute}
         onMenu={() => setMenu(true)}
       />
     );
@@ -442,8 +493,9 @@ export default function DriverDemoPage() {
       <ChecklistScreen
         stop={getStop(s.stopId)}
         stops={stops}
-        onConfirm={() => { setNote(''); setScreen({ name: 'confirming', stopId: s.stopId }); }}
-        onBack={() => setScreen({ name: 'at_stop', stopId: s.stopId })}
+        onConfirm={() => { setNote(''); push({ name: 'confirming', stopId: s.stopId }); }}
+        onBack={goBack}
+        onViewRoute={viewRoute}
       />
     );
 
@@ -454,8 +506,8 @@ export default function DriverDemoPage() {
         note={note}
         onNoteChange={setNote}
         onConfirmed={() => confirmDelivery(s.stopId)}
-        onIssue={() => setScreen({ name: 'issue', stopId: s.stopId })}
-        onBack={() => setScreen({ name: 'checklist', stopId: s.stopId })}
+        onIssue={() => push({ name: 'issue', stopId: s.stopId })}
+        onBack={goBack}
       />
     );
 
@@ -467,7 +519,7 @@ export default function DriverDemoPage() {
         stops={stops}
         nextStop={nextUp(s.stopId)}
         onNext={() => headToNext(s.stopId)}
-        onViewRoute={() => setScreen({ name: 'briefing' })}
+        onViewRoute={viewRoute}
       />
     );
 
@@ -477,7 +529,8 @@ export default function DriverDemoPage() {
         stop={getStop(s.stopId)}
         stops={stops}
         onSubmit={(reason, notes) => reportIssue(s.stopId, reason, notes)}
-        onBack={() => setScreen({ name: 'at_stop', stopId: s.stopId })}
+        onBack={goBack}
+        onViewRoute={viewRoute}
       />
     );
 
@@ -631,13 +684,13 @@ function BriefingScreen({
 // ── Screen: En Route ──────────────────────────────────────────────────────────
 
 function EnRouteScreen({
-  stop, stops, onArrive, onMenu,
-}: { stop: Stop; stops: Stop[]; onArrive: () => void; onMenu: () => void }) {
+  stop, stops, onArrive, onViewRoute, onMenu,
+}: { stop: Stop; stops: Stop[]; onArrive: () => void; onViewRoute: () => void; onMenu: () => void }) {
   const addr = `${stop.address}, ${stop.city}, ${stop.state} ${stop.zip}`;
 
   return (
     <div className="pb-36">
-      <ProgressStrip stops={stops} />
+      <ProgressStrip stops={stops} onViewRoute={onViewRoute} />
 
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <span className="text-[13px] font-semibold text-[#706D65] uppercase tracking-wide">En route</span>
@@ -707,13 +760,13 @@ function EnRouteScreen({
 // ── Screen: At Stop ───────────────────────────────────────────────────────────
 
 function AtStopScreen({
-  stop, stops, onChecklist, onIssue, onMenu,
-}: { stop: Stop; stops: Stop[]; onChecklist: () => void; onIssue: () => void; onMenu: () => void }) {
+  stop, stops, onChecklist, onIssue, onViewRoute, onMenu,
+}: { stop: Stop; stops: Stop[]; onChecklist: () => void; onIssue: () => void; onViewRoute: () => void; onMenu: () => void }) {
   const addr = `${stop.address}, ${stop.city}, ${stop.state} ${stop.zip}`;
 
   return (
     <div className="pb-36">
-      <ProgressStrip stops={stops} />
+      <ProgressStrip stops={stops} onViewRoute={onViewRoute} />
 
       <div className="flex items-center justify-between px-4 pt-4 pb-1">
         <span className="inline-flex items-center bg-[#E6F2DF] text-[#1E4D10] text-[13px] font-bold px-3 py-1 rounded-lg">
@@ -820,8 +873,8 @@ function AtStopScreen({
 // ── Screen: Checklist ─────────────────────────────────────────────────────────
 
 function ChecklistScreen({
-  stop, stops, onConfirm, onBack,
-}: { stop: Stop; stops: Stop[]; onConfirm: () => void; onBack: () => void }) {
+  stop, stops, onConfirm, onBack, onViewRoute,
+}: { stop: Stop; stops: Stop[]; onConfirm: () => void; onBack: () => void; onViewRoute: () => void }) {
   const items = [
     { id: 'tree',    label: stop.tree,     sub: `${stop.size} — main item`,            show: true       },
     { id: 'stand',   label: 'Tree stand',  sub: 'Attach to base before leaving',        show: stop.stand   },
@@ -842,7 +895,7 @@ function ChecklistScreen({
 
   return (
     <div className="pb-36">
-      <ProgressStrip stops={stops} />
+      <ProgressStrip stops={stops} onViewRoute={onViewRoute} />
 
       <div className="px-4 pt-5 pb-3">
         <BackBtn onClick={onBack} />
@@ -1026,14 +1079,14 @@ function SuccessScreen({
 // ── Screen: Issue ─────────────────────────────────────────────────────────────
 
 function IssueScreen({
-  stop, stops, onSubmit, onBack,
-}: { stop: Stop; stops: Stop[]; onSubmit: (reason: string, notes: string) => void; onBack: () => void }) {
+  stop, stops, onSubmit, onBack, onViewRoute,
+}: { stop: Stop; stops: Stop[]; onSubmit: (reason: string, notes: string) => void; onBack: () => void; onViewRoute: () => void }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [notes,    setNotes]    = useState('');
 
   return (
     <div className="pb-36">
-      <ProgressStrip stops={stops} />
+      <ProgressStrip stops={stops} onViewRoute={onViewRoute} />
 
       <div className="px-4 pt-5 pb-3">
         <BackBtn onClick={onBack} />
