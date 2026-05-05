@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
 import { TRPCProvider } from '@/lib/trpc/provider';
 import { PostHogProvider } from './PostHogProvider';
+import { AppToaster } from './AppToaster';
 import { themeBootScript } from '@/lib/theme';
 import './globals.css';
 
@@ -35,6 +36,7 @@ export default function RootLayout({
           <PostHogProvider>
             <TRPCProvider>{children}</TRPCProvider>
           </PostHogProvider>
+          <AppToaster />
         </body>
       </html>
     </ClerkProvider>
