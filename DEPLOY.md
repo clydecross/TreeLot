@@ -20,6 +20,27 @@ The handful that **must differ** are flagged as `PER-ENV` in
 
 ---
 
+## 0. Local dev quickstart (one-time per fresh dev DB)
+
+After cloning + `npm install` + `npm run db:migrate`, populate the dev DB and
+bind your Clerk identity to the demo org so Google sign-in lands on the
+dashboard instead of `/onboarding`:
+
+```bash
+npm run seed:demo            # customers / purchases / deliveries
+# Sign in once at http://localhost:3002/sign-in via Google so the Clerk user exists.
+npm run claim:demo-owner     # binds your ADMIN_EMAIL → demo org as owner
+```
+
+`claim:demo-owner` reads `ADMIN_EMAIL` + `CLERK_SECRET_KEY` from `.env.local`,
+looks you up via the Clerk SDK, and upserts a User row at `DEMO_USER_ID` in
+the demo org. It refuses to run when `VERCEL_ENV` or `NODE_ENV` is
+`production` (same posture as `set-driver-pin.ts`). The `seed:demo` wipe
+does not touch users, so you only run `claim:demo-owner` once per dev DB
+(or after rotating `ADMIN_EMAIL`).
+
+---
+
 ## 1. Push the repo to a Git remote
 
 This repo is currently not linked to a remote. Vercel needs a remote to deploy
@@ -227,6 +248,8 @@ The one nobody remembers:
 
 - `npm run db:migrate` — `prisma migrate deploy` against the current
   `DATABASE_URL`. Run before each deploy that adds a migration.
+- `npm run claim:demo-owner` — local-only. Binds `ADMIN_EMAIL`'s Clerk user
+  to the demo org as owner so Google sign-in skips `/onboarding`. See §0.
 - `npm run build` — what Vercel runs. Locally, also exercises the Sentry
   webpack plugin if `SENTRY_AUTH_TOKEN` is set.
 - `/api/health` — public health check.

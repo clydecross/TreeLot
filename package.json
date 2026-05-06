@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate deploy",
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "seed:today": "npx tsx scripts/seed-today.ts",
+    "claim:demo-owner": "npx tsx scripts/claim-demo-owner.ts",
     "dev:inngest": "npx inngest-cli@latest dev"
   },
   "dependencies": {
