@@ -186,6 +186,11 @@ export default function CustomersPage() {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">
+          {isLoading && rows.length === 0 && (
+            <div className="flex items-center justify-center h-32 text-xs text-fg-subtle">
+              Loading customers…
+            </div>
+          )}
           {!isLoading && rows.length === 0 && (
             <div className="flex items-center justify-center h-32 text-xs px-4 text-center text-fg-muted">
               {debouncedQuery.length > 0

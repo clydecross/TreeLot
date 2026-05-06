@@ -67,6 +67,10 @@ export default function ShiftPage() {
   const summary = summaryQ.data;
   const totals = summary?.totals;
 
+  const isToday = date === ymdLocal(new Date());
+  const noPaymentsMsg     = isToday ? 'No payments yet today.'     : 'No payments on this date.';
+  const noTransactionsMsg = isToday ? 'No transactions yet today.' : 'No transactions on this date.';
+
   const countedCents = useMemo(() => parseDollarsToCents(countedRaw), [countedRaw]);
   const expectedCents = totals?.cashCents ?? 0;
   const varianceCents =
@@ -202,9 +206,9 @@ export default function ShiftPage() {
                 </div>
               );
             })}
-            {paymentTotalCents === 0 && (
+            {!summaryQ.isLoading && paymentTotalCents === 0 && (
               <div className="text-fg-muted text-[12px] mt-1">
-                No payments yet today.
+                {noPaymentsMsg}
               </div>
             )}
           </Card>
@@ -276,11 +280,11 @@ export default function ShiftPage() {
                   ))}
                 </div>
               </>
-            ) : (
+            ) : !summaryQ.isLoading ? (
               <div className="text-fg-muted text-[13px] px-4 pb-4">
-                No transactions yet today.
+                {noTransactionsMsg}
               </div>
-            )}
+            ) : null}
           </Card>
 
           {/* Transaction log */}
@@ -336,10 +340,10 @@ export default function ShiftPage() {
                       </td>
                     </tr>
                   ))}
-                  {txDisplay.length === 0 && (
+                  {!summaryQ.isLoading && txDisplay.length === 0 && (
                     <tr>
                       <td colSpan={6} className="p-4 text-center text-fg-muted">
-                        No transactions yet today.
+                        {noTransactionsMsg}
                       </td>
                     </tr>
                   )}
@@ -374,9 +378,9 @@ export default function ShiftPage() {
                     </div>
                   </div>
                 ))}
-                {txDisplay.length === 0 && (
+                {!summaryQ.isLoading && txDisplay.length === 0 && (
                   <div className="p-4 text-center text-fg-muted text-[13px]">
-                    No transactions yet today.
+                    {noTransactionsMsg}
                   </div>
                 )}
               </div>

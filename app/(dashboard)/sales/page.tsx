@@ -249,8 +249,17 @@ export default function SalesPage() {
 
       {empty ? (
         <Card padding="lg" className="mt-4 text-center text-fg-muted">
-          <div className="py-12 text-[14px]">
-            No sales yet for this range
+          <div className="py-12 flex flex-col items-center gap-3">
+            <div className="text-[14px]">No sales for this range.</div>
+            {range !== 'season' && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setRange(range === 'today' ? 'week' : 'season')}
+              >
+                {range === 'today' ? 'Try this week' : 'Try this season'} →
+              </Button>
+            )}
           </div>
         </Card>
       ) : (
