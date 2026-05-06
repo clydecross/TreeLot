@@ -12,7 +12,6 @@ export const purchasesRouter = router({
         treeTypeName:      z.string().optional(),
         treeSizeRange:     z.string().min(1),
         subtotalCents:     z.number().int().min(1),
-        taxRateBps:        z.number().int().min(0),
         paymentMethod:     z.enum(['cash', 'card', 'venmo', 'zelle']),
         standIncluded:     z.boolean(),
         lightsIncluded:    z.boolean(),
@@ -52,7 +51,12 @@ export const purchasesRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
       }
 
-      const taxCents   = Math.round((input.subtotalCents * input.taxRateBps) / 10000);
+      // Tax rate is the org's setting, not whatever the client sent us.
+      const org = await ctx.db.organization.findUniqueOrThrow({
+        where:  { id: ctx.user.orgId },
+        select: { taxRateBps: true },
+      });
+      const taxCents   = Math.round((input.subtotalCents * org.taxRateBps) / 10000);
       const totalCents = input.subtotalCents + taxCents;
       const now = new Date();
 

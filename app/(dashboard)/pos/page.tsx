@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/cn';
+import { notify } from '@/lib/notify';
 
 const SEASON_YEAR = 2026;
 
@@ -180,16 +181,41 @@ export default function POSPage() {
       setNc({ firstName: '', lastName: '', phone: '', email: '' });
       setNcErr('');
       setQuery('');
+      notify.success('Customer created');
     },
-    onError: (e) => setNcErr(e.message),
+    onError: (e) => {
+      notify.error('Could not create customer', { description: e.message });
+    },
   });
 
-  const createPurchase = trpc.purchases.create.useMutation();
+  // Sale success is announced by the full-screen result card, so no
+  // success toast here — it would double-celebrate. Errors keep the
+  // cashier on the order screen, so a toast is the only signal.
+  const createPurchase = trpc.purchases.create.useMutation({
+    onError: (e) => {
+      notify.error('Sale could not be completed', { description: e.message });
+    },
+  });
 
   // Auto-advance to 'order' tab when a customer is selected (mobile only).
   useEffect(() => {
     if (selectedId) setMobileStep((prev) => (prev === 'customer' ? 'order' : prev));
   }, [selectedId]);
+
+  // Pre-fill delivery address from the customer record when delivery is
+  // toggled on. Skipped if any delivery field has already been typed —
+  // we won't overwrite the cashier's edits.
+  useEffect(() => {
+    if (!delivery || !cust) return;
+    if (df.addressLine1 || df.city || df.state || df.zip) return;
+    setDf((prev) => ({
+      ...prev,
+      addressLine1: cust.addressLine1 ?? '',
+      city:         cust.city ?? '',
+      state:        cust.state ?? '',
+      zip:          cust.zip ?? '',
+    }));
+  }, [delivery, cust, df.addressLine1, df.city, df.state, df.zip]);
 
   // ── Derived values ───────────────────────────────────────────────
   const taxRateBps      = org?.taxRateBps ?? 825;
@@ -241,7 +267,6 @@ export default function POSPage() {
         treeTypeName:      treeType === 'other' ? treeTypeLabel() : undefined,
         treeSizeRange:     SIZES[sizeIdx],
         subtotalCents,
-        taxRateBps,
         paymentMethod:     payMethod,
         standIncluded:     stand,
         lightsIncluded:    lights,
@@ -711,7 +736,14 @@ export default function POSPage() {
                   key={p}
                   size="sm"
                   variant={calcRaw === String(p) ? 'soft' : 'secondary'}
-                  onClick={() => setCalcRaw(String(p))}
+                  onClick={() => {
+                    setCalcRaw(String(p));
+                    // One-tap price = the cashier knows the total. Advance to
+                    // pay on mobile so they don't have to hunt for the tab.
+                    // Numpad typing intentionally does NOT trigger this — it
+                    // would yank them away mid-keying.
+                    setMobileStep((prev) => (prev === 'order' ? 'pay' : prev));
+                  }}
                   className="tabular-nums"
                 >
                   ${p}
@@ -796,12 +828,6 @@ export default function POSPage() {
           >
             {createPurchase.isPending ? 'Processing…' : 'Complete Sale'}
           </Button>
-
-          {createPurchase.isError && (
-            <div className="text-[12px] text-center text-error-fg">
-              {createPurchase.error.message}
-            </div>
-          )}
         </div>
       )}
 
