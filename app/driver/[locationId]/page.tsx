@@ -13,6 +13,22 @@ const SESSION_KEY = 'treelot_driver_session';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// ─── DRIVER SESSION RECOVERY ────────────────────────────────────────────────
+// If any driver-session call returns UNAUTHORIZED — stale sessionStorage,
+// expired cookie, signing key rotation — kick the user back to PIN select
+// instead of leaving them stuck on a broken screen.
+type LikeTRPCError = { data?: { code?: string } | null | undefined } | null | undefined;
+
+function isUnauthorized(err: LikeTRPCError): boolean {
+  return err?.data?.code === 'UNAUTHORIZED';
+}
+
+function useDriverGuard(error: LikeTRPCError, onUnauthorized: () => void) {
+  useEffect(() => {
+    if (isUnauthorized(error)) onUnauthorized();
+  }, [error, onUnauthorized]);
+}
+
 type Screen =
   | 'select'
   | 'pin'
@@ -148,7 +164,11 @@ function DriverApp({ locationId }: { locationId: string }) {
   const [session, setSession] = useState<DriverSession | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
-  // Hydrate from sessionStorage on mount
+  const logout = trpc.drivers.logout.useMutation();
+
+  // Hydrate from sessionStorage on mount. The HttpOnly cookie is the
+  // real auth — sessionStorage is just a UI cache so we know which
+  // screen to render before the first server call.
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
@@ -170,6 +190,7 @@ function DriverApp({ locationId }: { locationId: string }) {
     } catch {
       /* ignore */
     }
+    logout.mutate();
     setSession(null);
     setSelectedUser(null);
     setSelectedStopId(null);
@@ -218,6 +239,7 @@ function DriverApp({ locationId }: { locationId: string }) {
           setSelectedStopId(id);
           setScreen('stop');
         }}
+        onUnauthorized={signOut}
       />
     );
   } else if (screen === 'stop' && session && selectedStopId) {
@@ -230,6 +252,7 @@ function DriverApp({ locationId }: { locationId: string }) {
           setSelectedStopId(null);
           setScreen('route');
         }}
+        onUnauthorized={signOut}
       />
     );
   } else if (screen === 'menu' && session) {
@@ -249,12 +272,13 @@ function DriverApp({ locationId }: { locationId: string }) {
         session={session}
         onBack={() => setScreen('menu')}
         onDone={() => setScreen('menu')}
+        onUnauthorized={signOut}
       />
     );
   } else if (screen === 'history' && session) {
-    body = <HistoryScreen locationId={locationId} session={session} onBack={() => setScreen('menu')} />;
+    body = <HistoryScreen locationId={locationId} session={session} onBack={() => setScreen('menu')} onUnauthorized={signOut} />;
   } else if (screen === 'stats' && session) {
-    body = <StatsScreen locationId={locationId} session={session} onBack={() => setScreen('menu')} />;
+    body = <StatsScreen locationId={locationId} session={session} onBack={() => setScreen('menu')} onUnauthorized={signOut} />;
   } else {
     body = <SelectScreen locationId={locationId} onPick={(u) => { setSelectedUser(u); setScreen('pin'); }} />;
   }
@@ -499,18 +523,20 @@ function RouteScreen({
   session,
   onMenu,
   onPickStop,
+  onUnauthorized,
 }: {
   locationId: string;
   session: DriverSession;
   onMenu: () => void;
   onPickStop: (stopId: string) => void;
+  onUnauthorized: () => void;
 }) {
-  const route = trpc.drivers.getMyRoute.useQuery({
-    driverId: session.driverId,
-    locationId,
-  });
+  const route = trpc.drivers.getMyRoute.useQuery({});
+  useDriverGuard(route.error, onUnauthorized);
+
   const startRoute = trpc.drivers.startRoute.useMutation({
     onSuccess: () => route.refetch(),
+    onError: (e) => { if (isUnauthorized(e)) onUnauthorized(); },
   });
 
   const stops = (route.data ?? []) as RouteStop[];
@@ -545,7 +571,7 @@ function RouteScreen({
           variant="primary"
           size="lg"
           fullWidth
-          onClick={() => startRoute.mutate({ driverId: session.driverId, locationId })}
+          onClick={() => startRoute.mutate()}
           loading={startRoute.isPending}
           className="!h-[56px] text-[16px] font-semibold mb-4"
         >
@@ -675,10 +701,12 @@ function ChangePinScreen({
   session,
   onBack,
   onDone,
+  onUnauthorized,
 }: {
   session: DriverSession;
   onBack: () => void;
   onDone: () => void;
+  onUnauthorized: () => void;
 }) {
   const [step, setStep] = useState<'current' | 'new' | 'confirm'>('current');
   const [pin, setPin] = useState('');
@@ -694,6 +722,10 @@ function ChangePinScreen({
       setTimeout(() => onDone(), 2000);
     },
     onError: (err) => {
+      if (isUnauthorized(err)) {
+        onUnauthorized();
+        return;
+      }
       setError(err.message || 'Current PIN incorrect');
       setShaking(true);
       setTimeout(() => setShaking(false), 400);
@@ -736,7 +768,6 @@ function ChangePinScreen({
           return;
         }
         change.mutate({
-          driverId:   session.driverId,
           currentPin,
           newPin,
         });
@@ -809,16 +840,15 @@ function HistoryScreen({
   locationId,
   session,
   onBack,
+  onUnauthorized,
 }: {
   locationId: string;
   session: DriverSession;
   onBack: () => void;
+  onUnauthorized: () => void;
 }) {
-  const history = trpc.drivers.routeHistory.useQuery({
-    driverId: session.driverId,
-    locationId,
-    days:     14,
-  });
+  const history = trpc.drivers.routeHistory.useQuery({ days: 14 });
+  useDriverGuard(history.error, onUnauthorized);
 
   const groups = history.data ?? [];
 
@@ -891,15 +921,15 @@ function StatsScreen({
   locationId,
   session,
   onBack,
+  onUnauthorized,
 }: {
   locationId: string;
   session: DriverSession;
   onBack: () => void;
+  onUnauthorized: () => void;
 }) {
-  const stats = trpc.drivers.stats.useQuery({
-    driverId: session.driverId,
-    locationId,
-  });
+  const stats = trpc.drivers.stats.useQuery();
+  useDriverGuard(stats.error, onUnauthorized);
 
   const cards: Array<{ label: string; value: string; sub?: string }> = stats.data
     ? [
@@ -970,16 +1000,16 @@ function StopScreen({
   session,
   stopId,
   onBack,
+  onUnauthorized,
 }: {
   locationId: string;
   session: DriverSession;
   stopId: string;
   onBack: () => void;
+  onUnauthorized: () => void;
 }) {
-  const route = trpc.drivers.getMyRoute.useQuery({
-    driverId: session.driverId,
-    locationId,
-  });
+  const route = trpc.drivers.getMyRoute.useQuery({});
+  useDriverGuard(route.error, onUnauthorized);
 
   const stop = ((route.data ?? []) as RouteStop[]).find((s) => s.id === stopId);
 
@@ -988,12 +1018,14 @@ function StopScreen({
       await route.refetch();
       onBack();
     },
+    onError: (e) => { if (isUnauthorized(e)) onUnauthorized(); },
   });
   const reportIssue = trpc.drivers.reportIssue.useMutation({
     onSuccess: async () => {
       await route.refetch();
       onBack();
     },
+    onError: (e) => { if (isUnauthorized(e)) onUnauthorized(); },
   });
 
   const [showIssue, setShowIssue] = useState(false);
@@ -1103,7 +1135,7 @@ function StopScreen({
             size="lg"
             fullWidth
             onClick={() =>
-              markDelivered.mutate({ deliveryId: stop.id, driverId: session.driverId })
+              markDelivered.mutate({ deliveryId: stop.id })
             }
             loading={markDelivered.isPending}
             className="!h-[56px] text-[16px] font-semibold"
@@ -1164,7 +1196,6 @@ function StopScreen({
                   onClick={() =>
                     reportIssue.mutate({
                       deliveryId:  stop.id,
-                      driverId:    session.driverId,
                       issueReason,
                       driverNotes: notes || undefined,
                     })
