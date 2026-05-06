@@ -164,6 +164,26 @@ export const deliveriesRouter = router({
       });
     }),
 
+  // ── deliveries.revertStatus ───────────────────────────────────────────────
+  // Bypasses the forward state machine. Used by the dispatcher's Undo action
+  // after a status change — the client passes the prior status explicitly, so
+  // we never have to guess what to roll back to.
+  revertStatus: staffProcedure
+    .input(z.object({
+      deliveryId:  z.string().uuid(),
+      priorStatus: deliveryStatusSchema,
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await loadOwnedDelivery(ctx.db, input.deliveryId, ctx.user.orgId);
+      return ctx.db.delivery.update({
+        where: { id: input.deliveryId },
+        data: {
+          status:      input.priorStatus,
+          deliveredAt: input.priorStatus === 'delivered' ? new Date() : null,
+        },
+      });
+    }),
+
   // ── deliveries.getById ────────────────────────────────────────────────────
   getById: staffProcedure
     .input(z.object({ id: z.string().uuid() }))

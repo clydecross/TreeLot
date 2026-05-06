@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import type { inferRouterOutputs } from '@trpc/server';
 import { trpc } from '@/lib/trpc/client';
@@ -15,6 +17,21 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
 import { cn } from '@/lib/cn';
+import { notify } from '@/lib/notify';
+
+type DeliveryStatus = 'unassigned' | 'scheduled' | 'out_for_delivery' | 'delivered' | 'failed';
+
+// Maps a (from -> to) transition to its dispatcher button label and visual
+// variant. The first entry in VALID_NEXT[status] becomes the primary action;
+// the rest render as secondary or danger per this map.
+const STATUS_ACTION: Record<string, { label: string; variant: 'primary' | 'secondary' | 'danger' }> = {
+  'scheduled->out_for_delivery': { label: 'Mark out for delivery',   variant: 'primary'   },
+  'scheduled->unassigned':       { label: 'Move back to unassigned', variant: 'secondary' },
+  'out_for_delivery->delivered': { label: 'Mark delivered',          variant: 'primary'   },
+  'out_for_delivery->failed':    { label: 'Report issue',            variant: 'danger'    },
+  'failed->scheduled':           { label: 'Retry delivery',          variant: 'primary'   },
+  'unassigned->scheduled':       { label: 'Mark scheduled',          variant: 'secondary' },
+};
 
 type StatusFilter = 'all' | 'unassigned' | 'scheduled' | 'out_for_delivery' | 'delivered';
 
@@ -77,6 +94,23 @@ function fmtDateLong(iso: string): string {
   });
 }
 
+function fmtTime(value: Date | string): string {
+  return new Date(value).toLocaleTimeString('en-US', {
+    hour:   'numeric',
+    minute: '2-digit',
+  });
+}
+
+function fmtDateShortTime(value: Date | string): string {
+  const d = new Date(value);
+  return d.toLocaleString('en-US', {
+    month:  'short',
+    day:    'numeric',
+    hour:   'numeric',
+    minute: '2-digit',
+  });
+}
+
 function StatusPill({ status, size = 'sm' }: { status: string; size?: 'sm' | 'md' }) {
   return (
     <Badge variant={STATUS_VARIANT[status] ?? 'neutral'} size={size} dot>
@@ -98,9 +132,14 @@ type MobileTab = 'queue' | 'route';
 export default function DeliveriesPage() {
   const utils = trpc.useUtils();
 
-  const [date, setDate]                 = useState<string>(todayIso());
+  const params = useSearchParams();
+  const initialDate  = params.get('date');
+  const initialFocus = params.get('focus');
+
+  const [date, setDate]                 = useState<string>(initialDate ?? todayIso());
   const [filter, setFilter]             = useState<StatusFilter>('all');
-  const [selectedId, setSelectedId]     = useState<string | null>(null);
+  const [search, setSearch]             = useState<string>('');
+  const [selectedId, setSelectedId]     = useState<string | null>(initialFocus);
   const [selectedDriverId, setDriverId] = useState<string | null>(null);
   const [routeOverride, setRouteOverride] = useState<string[] | null>(null);
   const [mobileTab, setMobileTab]       = useState<MobileTab>('queue');
@@ -124,6 +163,10 @@ export default function DeliveriesPage() {
 
   const assignDriver = trpc.deliveries.assignDriver.useMutation({ onSuccess: invalidate });
   const updateStatus = trpc.deliveries.updateStatus.useMutation({ onSuccess: invalidate });
+  const revertStatus = trpc.deliveries.revertStatus.useMutation({
+    onSuccess: invalidate,
+    onError:   (e) => notify.error('Could not undo', { description: e.message }),
+  });
   const setRouteOrder = trpc.deliveries.setRouteOrder.useMutation({
     onMutate: (vars) => {
       const prev = routeOverride;
@@ -143,9 +186,23 @@ export default function DeliveriesPage() {
   }, [deliveries]);
 
   const filteredQueue = useMemo(() => {
-    if (filter === 'all') return deliveries;
-    return deliveries.filter((d) => d.status === filter);
-  }, [deliveries, filter]);
+    const term = search.trim().toLowerCase();
+    return deliveries.filter((d) => {
+      if (filter !== 'all' && d.status !== filter) return false;
+      if (!term) return true;
+      const haystack = [
+        d.customer.firstName,
+        d.customer.lastName,
+        d.customer.phone ?? '',
+        d.addressLine1,
+        d.city,
+        d.purchase.treeType,
+        d.purchase.treeTypeName ?? '',
+        d.purchase.treeSizeRange,
+      ].join(' ').toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [deliveries, filter, search]);
 
   const driverStops = useMemo(() => {
     if (!selectedDriverId) return [];
@@ -245,6 +302,31 @@ export default function DeliveriesPage() {
             onChange={(e) => { setDate(e.target.value); setSelectedId(null); }}
             inputSize="sm"
           />
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, address, tree…"
+            inputSize="sm"
+            leading={(
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.3" />
+                <path d="M10.2 10.2l3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+            )}
+            trailing={search ? (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="text-fg-muted hover:text-fg-default"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              </button>
+            ) : null}
+          />
           <div className="flex flex-wrap gap-1">
             {STATUS_FILTERS.map((f) => (
               <Button
@@ -262,8 +344,23 @@ export default function DeliveriesPage() {
 
         <div className="flex-1 overflow-y-auto">
           {filteredQueue.length === 0 && (
-            <div className="flex items-center justify-center h-32 text-xs text-center px-4 text-fg-subtle">
-              No deliveries
+            <div className="flex flex-col items-center justify-center h-32 gap-2 text-xs text-center px-4 text-fg-subtle">
+              <span>
+                {deliveries.length === 0
+                  ? 'No deliveries'
+                  : search.trim() || filter !== 'all'
+                  ? 'No deliveries match the current filters'
+                  : 'No deliveries'}
+              </span>
+              {(search.trim() || filter !== 'all') && deliveries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setFilter('all'); }}
+                  className="text-[11px] text-brand-softfg hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           )}
           {TIME_WINDOWS.map((tw) => {
@@ -307,6 +404,11 @@ export default function DeliveriesPage() {
                           → {d.driver.name}
                         </div>
                       )}
+                      {d.status === 'delivered' && d.deliveredAt && (
+                        <div className="text-[11px] mt-0.5 text-success-fg tabular-nums">
+                          ✓ Delivered {fmtTime(d.deliveredAt)}
+                        </div>
+                      )}
                     </button>
                   );
                 })}
@@ -337,6 +439,15 @@ export default function DeliveriesPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link href="/driver-demo" target="_blank" rel="noopener noreferrer">
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Preview the driver app in a new tab (demo data)"
+              >
+                Preview driver app
+              </Button>
+            </Link>
             <div className="w-[200px]">
               <Select
                 selectSize="sm"
@@ -450,6 +561,7 @@ export default function DeliveriesPage() {
             drivers={drivers}
             assignDriver={assignDriver}
             updateStatus={updateStatus}
+            revertStatus={revertStatus}
           />
         )}
       </aside>
@@ -491,6 +603,7 @@ export default function DeliveriesPage() {
                   drivers={drivers}
                   assignDriver={assignDriver}
                   updateStatus={updateStatus}
+                  revertStatus={revertStatus}
                 />
               )}
             </div>
@@ -506,9 +619,30 @@ type DeliveryDetailProps = {
   drivers: DriverUser[];
   assignDriver: ReturnType<typeof trpc.deliveries.assignDriver.useMutation>;
   updateStatus: ReturnType<typeof trpc.deliveries.updateStatus.useMutation>;
+  revertStatus: ReturnType<typeof trpc.deliveries.revertStatus.useMutation>;
 };
 
-function DeliveryDetail({ detail, drivers, assignDriver, updateStatus }: DeliveryDetailProps) {
+function DeliveryDetail({ detail, drivers, assignDriver, updateStatus, revertStatus }: DeliveryDetailProps) {
+  const fromStatus = detail.status as DeliveryStatus;
+  const nextStatuses = (VALID_NEXT[fromStatus] ?? []) as DeliveryStatus[];
+
+  async function transitionStatus(toStatus: DeliveryStatus) {
+    const id = notify.loading('Updating…');
+    try {
+      await updateStatus.mutateAsync({ deliveryId: detail.id, status: toStatus });
+      notify.success(`Marked ${STATUS_LABEL[toStatus].toLowerCase()}`, {
+        id,
+        duration: 6000,
+        action: {
+          label: 'Undo',
+          onClick: () => revertStatus.mutate({ deliveryId: detail.id, priorStatus: fromStatus }),
+        },
+      });
+    } catch (e) {
+      notify.error('Could not update status', { id, description: (e as Error).message });
+    }
+  }
+
   return (
     <div className="p-4 flex flex-col gap-4">
       <div>
@@ -558,21 +692,25 @@ function DeliveryDetail({ detail, drivers, assignDriver, updateStatus }: Deliver
 
       <div>
         <SectionLabel>Status</SectionLabel>
-        <Select
-          selectSize="sm"
-          value={detail.status}
-          onChange={(e) => updateStatus.mutate({ deliveryId: detail.id, status: e.target.value as 'unassigned' | 'scheduled' | 'out_for_delivery' | 'delivered' | 'failed' })}
-        >
-          <option value={detail.status}>{STATUS_LABEL[detail.status]}</option>
-          {VALID_NEXT[detail.status].map((s) => (
-            <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-          ))}
-        </Select>
-        {updateStatus.isError && (
-          <div className="text-[11px] mt-1 text-error-fg">
-            {updateStatus.error.message}
-          </div>
-        )}
+        <div className="flex flex-col gap-2">
+          <StatusPill status={fromStatus} size="md" />
+          {nextStatuses.map((toStatus) => {
+            const action = STATUS_ACTION[`${fromStatus}->${toStatus}`];
+            if (!action) return null;
+            return (
+              <Button
+                key={toStatus}
+                size="sm"
+                variant={action.variant}
+                fullWidth
+                disabled={updateStatus.isPending}
+                onClick={() => transitionStatus(toStatus)}
+              >
+                {action.label}
+              </Button>
+            );
+          })}
+        </div>
       </div>
 
       <div>
@@ -609,6 +747,75 @@ function DeliveryDetail({ detail, drivers, assignDriver, updateStatus }: Deliver
           </Card>
         </div>
       )}
+
+      <div>
+        <SectionLabel>Activity</SectionLabel>
+        <DeliveryTimeline detail={detail} />
+      </div>
     </div>
+  );
+}
+
+function DeliveryTimeline({ detail }: { detail: DeliveryDetailData }) {
+  const status = detail.status as DeliveryStatus;
+
+  type Event = { label: string; at: Date | string | null; tone: 'done' | 'pending' | 'fail'; sub?: string };
+  const events: Event[] = [
+    {
+      label: 'Sold at POS',
+      at:    detail.purchase.purchasedAt,
+      tone:  'done',
+      sub:   detail.purchase.createdBy ? `by ${detail.purchase.createdBy.name}` : undefined,
+    },
+    {
+      label: detail.driver ? `Assigned to ${detail.driver.name}` : 'Awaiting driver',
+      at:    detail.driverId ? detail.createdAt : null,
+      tone:  detail.driverId ? 'done' : 'pending',
+    },
+    {
+      label: status === 'failed' ? 'Failed' : 'Delivered',
+      at:    detail.deliveredAt,
+      tone:  status === 'delivered' ? 'done' : status === 'failed' ? 'fail' : 'pending',
+      sub:   status === 'failed' ? detail.issueReason ?? undefined : undefined,
+    },
+  ];
+
+  return (
+    <ol className="flex flex-col gap-2.5 mt-1">
+      {events.map((e, i) => {
+        const isLast = i === events.length - 1;
+        const dotClass =
+          e.tone === 'done' ? 'bg-emerald-500' :
+          e.tone === 'fail' ? 'bg-rose-500'    :
+                              'bg-stone-400';
+        const labelClass =
+          e.tone === 'done' ? 'text-fg-default' :
+          e.tone === 'fail' ? 'text-error-fg'   :
+                              'text-fg-muted';
+        return (
+          <li key={i} className="relative flex gap-2.5">
+            <div className="flex flex-col items-center flex-shrink-0">
+              <span className={cn('w-2 h-2 rounded-full mt-1', dotClass)} />
+              {!isLast && <span className="flex-1 w-px bg-border-subtle min-h-[14px] mt-1" />}
+            </div>
+            <div className="flex-1 min-w-0 pb-0.5">
+              <div className={cn('text-[12.5px] font-medium', labelClass)}>
+                {e.label}
+              </div>
+              {e.at && (
+                <div className="text-[11px] text-fg-muted tabular-nums">
+                  {fmtDateShortTime(e.at)}
+                </div>
+              )}
+              {e.sub && (
+                <div className="text-[11px] text-fg-muted truncate">
+                  {e.sub}
+                </div>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
