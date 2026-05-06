@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/Button';
@@ -61,6 +62,7 @@ type TimeWindow = 'morning' | 'afternoon' | 'evening' | 'anytime';
 interface SaleResult {
   purchaseId:   string;
   deliveryId:   string | null;
+  deliveryDate: string | null;
   customerName: string;
   treeLabel:    string;
   sizeLabel:    string;
@@ -288,6 +290,7 @@ export default function POSPage() {
           setSaleResult({
             purchaseId:   data.purchase.id,
             deliveryId:   data.delivery?.id ?? null,
+            deliveryDate: data.delivery ? df.deliveryDate : null,
             customerName: custName,
             treeLabel,
             sizeLabel:    szLabel,
@@ -494,9 +497,18 @@ export default function POSPage() {
             </div>
             <div className="flex flex-col gap-2">
               {saleResult.deliveryId && (
-                <a href="/deliveries" className="block w-full">
+                <Link
+                  href={{
+                    pathname: '/deliveries',
+                    query: {
+                      ...(saleResult.deliveryDate ? { date: saleResult.deliveryDate } : {}),
+                      focus: saleResult.deliveryId,
+                    },
+                  }}
+                  className="block w-full"
+                >
                   <Button fullWidth variant="primary">View in deliveries →</Button>
-                </a>
+                </Link>
               )}
               <Button fullWidth variant="secondary" onClick={newSale}>New sale</Button>
             </div>
