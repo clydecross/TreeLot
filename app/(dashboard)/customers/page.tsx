@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
 import { trpc } from '@/lib/trpc/client';
@@ -9,8 +10,43 @@ import { Card } from '@/components/ui/Card';
 import { Input as UIInput } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/cn';
+import { notify } from '@/lib/notify';
 
 type CustomerDetailData = NonNullable<inferRouterOutputs<AppRouter>['customers']['getById']>;
+type PurchaseRow = CustomerDetailData['purchases'][number];
+
+const DELIVERY_BADGE: Record<
+  string,
+  { label: string; variant: 'brand' | 'success' | 'info' | 'warn' | 'error' }
+> = {
+  unassigned:       { label: 'Delivery · Needs driver', variant: 'warn'    },
+  scheduled:        { label: 'Delivery · Scheduled',    variant: 'brand'   },
+  out_for_delivery: { label: 'Delivery · Out',          variant: 'info'    },
+  delivered:        { label: 'Delivery · Delivered',    variant: 'success' },
+  failed:           { label: 'Delivery · Failed',       variant: 'error'   },
+};
+
+function deliveryDateIso(value: Date | string): string {
+  const v = typeof value === 'string' ? value : value.toISOString();
+  return v.slice(0, 10);
+}
+
+function DeliveryBadge({ purchase }: { purchase: PurchaseRow }) {
+  if (!purchase.deliveryRequested) return null;
+  const d = purchase.delivery;
+  if (!d) {
+    // Purchase flagged for delivery but no row created — shouldn't happen with
+    // the current POS flow, but render a neutral fallback rather than crash.
+    return <Badge variant="brand">Delivery</Badge>;
+  }
+  const meta = DELIVERY_BADGE[d.status] ?? DELIVERY_BADGE.scheduled;
+  const href = `/deliveries?date=${deliveryDateIso(d.deliveryDate)}&focus=${d.id}`;
+  return (
+    <Link href={href} className="hover:opacity-80 transition-opacity">
+      <Badge variant={meta.variant}>{meta.label}</Badge>
+    </Link>
+  );
+}
 
 type SortKey = 'recent' | 'lifetime' | 'name';
 
@@ -61,9 +97,13 @@ export default function CustomersPage() {
   const utils = trpc.useUtils();
   const updateCust = trpc.customers.update.useMutation({
     onSuccess: () => {
+      notify.success('Customer updated');
       setEditing(false);
       utils.customers.list.invalidate();
       utils.customers.getById.invalidate();
+    },
+    onError: (e) => {
+      notify.error('Could not save customer', { description: e.message });
     },
   });
 
@@ -235,7 +275,6 @@ export default function CustomersPage() {
           <CustomerEditForm
             customer={detail.data}
             saving={updateCust.isPending}
-            error={updateCust.error?.message ?? null}
             onCancel={() => setEditing(false)}
             onSave={(patch) =>
               updateCust.mutate({ id: detail.data!.id, ...patch })
@@ -340,7 +379,7 @@ function CustomerDetail({
                     <div className="flex gap-1 flex-wrap mt-2">
                       {p.standIncluded && <Badge variant="neutral">Stand</Badge>}
                       {p.lightsIncluded && <Badge variant="neutral">Lights</Badge>}
-                      {p.deliveryRequested && <Badge variant="brand">Delivery</Badge>}
+                      <DeliveryBadge purchase={p} />
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-subtle">
@@ -383,7 +422,7 @@ function CustomerDetail({
                         <div className="flex gap-1 flex-wrap">
                           {p.standIncluded && <Badge variant="neutral">Stand</Badge>}
                           {p.lightsIncluded && <Badge variant="neutral">Lights</Badge>}
-                          {p.deliveryRequested && <Badge variant="brand">Delivery</Badge>}
+                          <DeliveryBadge purchase={p} />
                         </div>
                       </Td>
                       <Td>
@@ -410,13 +449,11 @@ function CustomerDetail({
 function CustomerEditForm({
   customer,
   saving,
-  error,
   onCancel,
   onSave,
 }: {
   customer: CustomerDetailData;
   saving: boolean;
-  error: string | null;
   onCancel: () => void;
   onSave: (patch: {
     firstName?: string;
@@ -509,8 +546,6 @@ function CustomerEditForm({
           className="w-full bg-bg-surface border border-border-default rounded-[var(--radius-md)] focus-ring placeholder:text-fg-subtle text-fg-default px-3 py-2 text-[13px] resize-none"
         />
       </Field>
-
-      {error && <div className="text-xs text-error-fg">{error}</div>}
 
       <div className="flex gap-2 pt-2">
         <Button
