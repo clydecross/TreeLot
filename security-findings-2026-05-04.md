@@ -15,19 +15,19 @@ severity, file:line, what's wrong, why it matters, and a concrete fix.
 
 | # | Severity | File | Title | Fix this… |
 |---|---|---|---|---|
-| 1 | **Critical** | `server/trpc.ts:52–61` + `app/(dashboard)/layout.tsx:36–50` | Cross-org impersonation via forgeable cookies | **Today** |
-| 2 | **High** | `server/routers/drivers.ts:57–118` | Driver PIN brute-forceable in ~15–20 min | **This week** |
-| 3 | **High** | `app/demo/route.ts` + `server/trpc.ts:40–46` | `/demo` grants writable owner access to demo org | **This week** |
+| 1 | ~~**Critical**~~ ✅ | `server/trpc.ts:52–61` + `app/(dashboard)/layout.tsx:36–50` | Cross-org impersonation via forgeable cookies | ~~Today~~ — closed `ae6478b` (2026-05-04) |
+| 2 | ~~**High**~~ ✅ | `server/routers/drivers.ts:57–118` | Driver PIN brute-forceable in ~15–20 min | ~~This week~~ — closed 2026-05-05 (lockout + IP rate limit + audit log; PIN length still pending decision) |
+| 3 | **High** | `app/demo/route.ts` + `server/trpc.ts:40–46` | `/demo` grants writable owner access to demo org | **This week** — blocked on disposition decision (A/B) |
 | 4 | **High** | `sentry.*.config.ts` + `app/PostHogProvider.tsx` | Customer PII forwarded to Sentry & PostHog with no redaction | **This week** |
-| 5 | **High** | `scripts/set-driver-pin.ts` (committed) | Committed dev script sets PIN `1234` on a fixed UUID | **This week** |
+| 5 | ~~**High**~~ ✅ | `scripts/set-driver-pin.ts` (committed) | Committed dev script sets PIN `1234` on a fixed UUID | ~~This week~~ — closed 2026-05-05 (rewritten to require CLI args, refuse prod) |
 | 6 | Medium | `server/routers/tax.ts:27` | `tax.lookupRate` is unauthenticated (publicProcedure) — quota-drain abuse | This sprint |
-| 7 | Medium | `server/routers/drivers.ts:39–51` | `drivers.getList` enumerates driver names per location | This sprint |
+| 7 | ~~Medium~~ ✅ | `server/routers/drivers.ts:39–51` | `drivers.getList` enumerates driver names per location | ~~This sprint~~ — IP rate limit + audit log added 2026-05-05 (per-lot device token still optional hardening) |
 | 8 | Medium | `lib/driver-session.ts` | No per-driver session revocation; rotated PIN doesn't kill old token | This sprint |
 | 9 | Medium | `next.config.ts` (no `headers()`) | Zero security headers — no CSP, HSTS, frame-options, referrer-policy, etc. | This sprint |
-| 10 | Medium | `server/router.ts` (no audit log model) | No audit trail for destructive admin actions | This sprint |
+| 10 | Medium | `server/router.ts` (no audit log model) | No audit trail for destructive admin actions | This sprint — auth-surface slice landed 2026-05-05; admin slice still open |
 | 11 | Medium | `server/routers/admin.ts:181–262` | Invitations never auto-expire | Backlog |
 | 12 | Medium | `app/(superadmin)/orgActions.ts` | Server actions rely on framework CSRF — verify still on in Next 16 | Backlog |
-| 13 | Medium | `server/routers/drivers.ts` | No PIN lockout after N failed attempts | Backlog |
+| 13 | ~~Medium~~ ✅ | `server/routers/drivers.ts` | No PIN lockout after N failed attempts | ~~Backlog~~ — closed 2026-05-05 with H-1 (5 fails → 15min lockout) |
 | 14 | Low | `server/trpc.ts:78–86` | tRPC error formatter exposes Zod field shapes | Backlog |
 | 15 | Low | `app/api/health/route.ts:7` | `/api/health` exposes commit SHA to anonymous callers | Backlog |
 | 16 | Low | `server/routers/shift.ts:14, 22` | Throws raw `Error` instead of `TRPCError` | Backlog |

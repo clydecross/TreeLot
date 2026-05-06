@@ -1,7 +1,18 @@
 import bcrypt from 'bcryptjs';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
+import { cookies } from 'next/headers';
+import { router, publicProcedure, driverSessionProcedure } from '../trpc';
+import { signDriverSession, DRIVER_SESSION_COOKIE } from '@/lib/driver-session';
+import {
+  IP_RATE_MAX_AUTH,
+  IP_RATE_MAX_GETLIST,
+  assertIpUnderLimit,
+  assertNotLocked,
+  clearFailures,
+  recordAuthAttempt,
+  recordFailureAndMaybeLock,
+} from '@/lib/auth-rate-limit';
 
 function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -32,11 +43,15 @@ async function assertLocation(
 
 export const driversRouter = router({
   // ── drivers.getList ───────────────────────────────────────────────────────
+  // Pre-session: rendered on the PIN-select screen so a driver can pick their
+  // name. Public on purpose; only returns names + ids for the requested lot.
   getList: publicProcedure
     .input(z.object({ locationId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
+      await assertIpUnderLimit(ctx.ip, 'driver.getList', IP_RATE_MAX_GETLIST);
       await assertLocation(ctx.db, input.locationId);
-      return ctx.db.user.findMany({
+
+      const drivers = await ctx.db.user.findMany({
         where: {
           locationId: input.locationId,
           role: { in: ['driver', 'staff'] },
@@ -44,9 +59,24 @@ export const driversRouter = router({
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
       });
+
+      // Audit the lookup itself — feeds the IP rate limiter and gives us a
+      // signal if a single IP starts walking lots.
+      await recordAuthAttempt({
+        scope:      'driver.getList',
+        locationId: input.locationId,
+        ip:         ctx.ip,
+        userAgent:  ctx.userAgent,
+        success:    true,
+      });
+
+      return drivers;
     }),
 
   // ── drivers.authenticate ──────────────────────────────────────────────────
+  // PIN login. On success, sets an HttpOnly session cookie. The cookie carries
+  // a signed token containing driverId + locationId + orgId — every subsequent
+  // driver call reads identity from that, never from the client.
   authenticate: publicProcedure
     .input(z.object({
       userId:     z.string().uuid(),
@@ -54,12 +84,53 @@ export const driversRouter = router({
       locationId: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
+      // Three gates, in order, before we touch bcrypt:
+      //   1. IP rate limit — bounds total attempts per minute per source IP.
+      //   2. Location existence — same UNAUTHORIZED-shaped error as elsewhere.
+      //   3. Per-user lockout — short-circuits the bcrypt cost for locked users
+      //      and prevents an attacker from stretching a streak past N tries
+      //      even at low request rates.
+      // userId in audit rows is intentionally null for the early gates: we
+      // haven't verified the user exists yet, and auth_audit_log has an FK to
+      // users that would silently drop the row on a bogus id. IP + UA still
+      // preserves the forensic trail.
+      try {
+        await assertIpUnderLimit(ctx.ip, 'driver.authenticate', IP_RATE_MAX_AUTH);
+      } catch (e) {
+        await recordAuthAttempt({
+          scope: 'driver.authenticate', userId: null, locationId: input.locationId,
+          ip: ctx.ip, userAgent: ctx.userAgent, success: false, reason: 'rate_limited',
+        });
+        throw e;
+      }
+
       await assertLocation(ctx.db, input.locationId);
+
+      try {
+        await assertNotLocked(input.userId);
+      } catch (e) {
+        // Lockout row exists, so the userId is real (FK guaranteed it).
+        await recordAuthAttempt({
+          scope: 'driver.authenticate', userId: input.userId, locationId: input.locationId,
+          ip: ctx.ip, userAgent: ctx.userAgent, success: false, reason: 'locked',
+        });
+        throw e;
+      }
+
       const user = await ctx.db.user.findFirst({
         where: { id: input.userId, locationId: input.locationId },
       });
 
       if (!user || !user.pin) {
+        // Don't increment a per-user lockout for a non-existent userId —
+        // pin_failures has an FK to users. The IP rate limit above already
+        // bounds enumeration; this branch just needs to be audited.
+        // userId is dropped (FK) but the IP/UA still tells us who's probing.
+        await recordAuthAttempt({
+          scope: 'driver.authenticate', userId: user ? user.id : null, locationId: input.locationId,
+          ip: ctx.ip, userAgent: ctx.userAgent, success: false,
+          reason: user ? 'no_pin' : 'no_user',
+        });
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'No PIN set for this user',
@@ -68,8 +139,34 @@ export const driversRouter = router({
 
       const ok = await bcrypt.compare(input.pin, user.pin);
       if (!ok) {
+        await recordFailureAndMaybeLock(user.id);
+        await recordAuthAttempt({
+          scope: 'driver.authenticate', userId: user.id, locationId: input.locationId,
+          ip: ctx.ip, userAgent: ctx.userAgent, success: false, reason: 'bad_pin',
+        });
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Incorrect PIN' });
       }
+
+      await clearFailures(user.id);
+      await recordAuthAttempt({
+        scope: 'driver.authenticate', userId: user.id, locationId: input.locationId,
+        ip: ctx.ip, userAgent: ctx.userAgent, success: true,
+      });
+
+      const token = signDriverSession({
+        driverId:   user.id,
+        locationId: input.locationId,
+        orgId:      user.orgId,
+      });
+      const cookieStore = await cookies();
+      cookieStore.set(DRIVER_SESSION_COOKIE, token, {
+        httpOnly: true,
+        secure:   process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path:     '/',
+        // No maxAge → session cookie. Clears on browser close. The token's
+        // own 12h exp is the upper bound if the browser is left open.
+      });
 
       const today = todayDateString();
       const range = dateRangeForDay(today);
@@ -95,22 +192,40 @@ export const driversRouter = router({
       return { driverId: user.id, name: user.name, todayStops };
     }),
 
+  // ── drivers.logout ────────────────────────────────────────────────────────
+  logout: publicProcedure.mutation(async () => {
+    const cookieStore = await cookies();
+    cookieStore.delete(DRIVER_SESSION_COOKIE);
+    return { success: true };
+  }),
+
+  // ── drivers.me ────────────────────────────────────────────────────────────
+  // Lets the client confirm "yes, the cookie is still valid" without firing
+  // a heavier query. Returns the driver's display name.
+  me: driverSessionProcedure.query(async ({ ctx }) => {
+    const user = await ctx.db.user.findUnique({
+      where:  { id: ctx.driver.driverId },
+      select: { id: true, name: true },
+    });
+    if (!user) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Driver not found' });
+    }
+    return { driverId: user.id, name: user.name };
+  }),
+
   // ── drivers.getMyRoute ────────────────────────────────────────────────────
-  getMyRoute: publicProcedure
+  getMyRoute: driverSessionProcedure
     .input(z.object({
-      driverId:   z.string().uuid(),
-      locationId: z.string().uuid(),
-      date:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }))
     .query(async ({ input, ctx }) => {
-      await assertLocation(ctx.db, input.locationId);
       const date = input.date ?? todayDateString();
       const range = dateRangeForDay(date);
 
       return ctx.db.delivery.findMany({
         where: {
-          driverId:   input.driverId,
-          locationId: input.locationId,
+          driverId:   ctx.driver.driverId,
+          locationId: ctx.driver.locationId,
           deliveryDate: { gte: range.gte, lt: range.lt },
         },
         include: {
@@ -127,10 +242,9 @@ export const driversRouter = router({
     }),
 
   // ── drivers.markDelivered ─────────────────────────────────────────────────
-  markDelivered: publicProcedure
+  markDelivered: driverSessionProcedure
     .input(z.object({
       deliveryId:  z.string().uuid(),
-      driverId:    z.string().uuid(),
       driverNotes: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
@@ -140,7 +254,7 @@ export const driversRouter = router({
       if (!delivery) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Delivery not found' });
       }
-      if (delivery.driverId !== input.driverId) {
+      if (delivery.driverId !== ctx.driver.driverId) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Not your delivery' });
       }
 
@@ -155,10 +269,9 @@ export const driversRouter = router({
     }),
 
   // ── drivers.reportIssue ───────────────────────────────────────────────────
-  reportIssue: publicProcedure
+  reportIssue: driverSessionProcedure
     .input(z.object({
       deliveryId:  z.string().uuid(),
-      driverId:    z.string().uuid(),
       issueReason: z.string().min(1),
       driverNotes: z.string().optional(),
     }))
@@ -169,7 +282,7 @@ export const driversRouter = router({
       if (!delivery) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Delivery not found' });
       }
-      if (delivery.driverId !== input.driverId) {
+      if (delivery.driverId !== ctx.driver.driverId) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Not your delivery' });
       }
 
@@ -184,42 +297,59 @@ export const driversRouter = router({
     }),
 
   // ── drivers.startRoute ────────────────────────────────────────────────────
-  startRoute: publicProcedure
-    .input(z.object({
-      driverId:   z.string().uuid(),
-      locationId: z.string().uuid(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      await assertLocation(ctx.db, input.locationId);
-      const today = todayDateString();
-      const range = dateRangeForDay(today);
+  startRoute: driverSessionProcedure.mutation(async ({ ctx }) => {
+    const today = todayDateString();
+    const range = dateRangeForDay(today);
 
-      const result = await ctx.db.delivery.updateMany({
-        where: {
-          driverId:   input.driverId,
-          locationId: input.locationId,
-          status:     'scheduled',
-          deliveryDate: { gte: range.gte, lt: range.lt },
-        },
-        data: { status: 'out_for_delivery' },
-      });
+    const result = await ctx.db.delivery.updateMany({
+      where: {
+        driverId:   ctx.driver.driverId,
+        locationId: ctx.driver.locationId,
+        status:     'scheduled',
+        deliveryDate: { gte: range.gte, lt: range.lt },
+      },
+      data: { status: 'out_for_delivery' },
+    });
 
-      return { updated: result.count };
-    }),
+    return { updated: result.count };
+  }),
 
   // ── drivers.changePin ─────────────────────────────────────────────────────
-  changePin: publicProcedure
+  changePin: driverSessionProcedure
     .input(z.object({
-      driverId:   z.string().uuid(),
       currentPin: z.string().regex(/^\d{4}$/),
       newPin:     z.string().regex(/^\d{4}$/),
     }))
     .mutation(async ({ input, ctx }) => {
+      const driverId   = ctx.driver.driverId;
+      const locationId = ctx.driver.locationId;
+
+      // Same gating as authenticate — a hijacked driver cookie shouldn't get
+      // unlimited attempts at the current PIN.
+      // changePin runs under driverSessionProcedure, so the driverId came
+      // from a verified HMAC-signed cookie — safe to pass to the audit log
+      // FK without an existence check.
+      try {
+        await assertIpUnderLimit(ctx.ip, 'driver.changePin', IP_RATE_MAX_AUTH);
+        await assertNotLocked(driverId);
+      } catch (e) {
+        await recordAuthAttempt({
+          scope: 'driver.changePin', userId: driverId, locationId,
+          ip: ctx.ip, userAgent: ctx.userAgent, success: false,
+          reason: e instanceof TRPCError && e.code === 'TOO_MANY_REQUESTS' ? 'rate_limited' : 'locked',
+        });
+        throw e;
+      }
+
       const user = await ctx.db.user.findFirst({
-        where: { id: input.driverId, role: { in: ['driver', 'staff'] } },
+        where: { id: driverId, role: { in: ['driver', 'staff'] } },
       });
 
       if (!user || !user.pin) {
+        await recordAuthAttempt({
+          scope: 'driver.changePin', userId: driverId, locationId,
+          ip: ctx.ip, userAgent: ctx.userAgent, success: false, reason: 'no_user',
+        });
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'No PIN set for this user',
@@ -228,6 +358,11 @@ export const driversRouter = router({
 
       const ok = await bcrypt.compare(input.currentPin, user.pin);
       if (!ok) {
+        await recordFailureAndMaybeLock(user.id);
+        await recordAuthAttempt({
+          scope: 'driver.changePin', userId: user.id, locationId,
+          ip: ctx.ip, userAgent: ctx.userAgent, success: false, reason: 'bad_pin',
+        });
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'Current PIN incorrect',
@@ -240,37 +375,29 @@ export const driversRouter = router({
         data:  { pin: hashed },
       });
 
+      await clearFailures(user.id);
+      await recordAuthAttempt({
+        scope: 'driver.changePin', userId: user.id, locationId,
+        ip: ctx.ip, userAgent: ctx.userAgent, success: true,
+      });
+
       return { success: true };
     }),
 
   // ── drivers.routeHistory ──────────────────────────────────────────────────
-  routeHistory: publicProcedure
+  routeHistory: driverSessionProcedure
     .input(z.object({
-      driverId:   z.string().uuid(),
-      locationId: z.string().uuid(),
-      days:       z.number().int().min(1).max(90).default(14),
+      days: z.number().int().min(1).max(90).default(14),
     }))
     .query(async ({ input, ctx }) => {
-      await assertLocation(ctx.db, input.locationId);
-      const user = await ctx.db.user.findFirst({
-        where: {
-          id:         input.driverId,
-          locationId: input.locationId,
-          role:       { in: ['driver', 'staff'] },
-        },
-      });
-      if (!user) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Driver not found in this location' });
-      }
-
       const since = new Date();
       since.setUTCHours(0, 0, 0, 0);
       since.setUTCDate(since.getUTCDate() - input.days);
 
       const rows = await ctx.db.delivery.findMany({
         where: {
-          driverId:     input.driverId,
-          locationId:   input.locationId,
+          driverId:     ctx.driver.driverId,
+          locationId:   ctx.driver.locationId,
           deliveryDate: { gte: since },
         },
         include: {
@@ -321,82 +448,65 @@ export const driversRouter = router({
     }),
 
   // ── drivers.stats ─────────────────────────────────────────────────────────
-  stats: publicProcedure
-    .input(z.object({
-      driverId:   z.string().uuid(),
-      locationId: z.string().uuid(),
-    }))
-    .query(async ({ input, ctx }) => {
-      await assertLocation(ctx.db, input.locationId);
-      const user = await ctx.db.user.findFirst({
+  stats: driverSessionProcedure.query(async ({ ctx }) => {
+    const today = todayDateString();
+    const todayRange = dateRangeForDay(today);
+
+    const since30 = new Date();
+    since30.setUTCHours(0, 0, 0, 0);
+    since30.setUTCDate(since30.getUTCDate() - 30);
+
+    // Start of current week (Monday) in UTC
+    const weekStart = new Date();
+    weekStart.setUTCHours(0, 0, 0, 0);
+    const dow = weekStart.getUTCDay(); // 0 Sun .. 6 Sat
+    const daysFromMonday = (dow + 6) % 7;
+    weekStart.setUTCDate(weekStart.getUTCDate() - daysFromMonday);
+
+    const baseWhere = {
+      driverId:   ctx.driver.driverId,
+      locationId: ctx.driver.locationId,
+    };
+
+    const [totalDelivered, totalFailed, thisWeekDelivered, todayScheduled] = await Promise.all([
+      ctx.db.delivery.count({
         where: {
-          id:         input.driverId,
-          locationId: input.locationId,
-          role:       { in: ['driver', 'staff'] },
+          ...baseWhere,
+          status:       'delivered',
+          deliveryDate: { gte: since30 },
         },
-      });
-      if (!user) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Driver not found in this location' });
-      }
+      }),
+      ctx.db.delivery.count({
+        where: {
+          ...baseWhere,
+          status:       'failed',
+          deliveryDate: { gte: since30 },
+        },
+      }),
+      ctx.db.delivery.count({
+        where: {
+          ...baseWhere,
+          status:      'delivered',
+          deliveredAt: { gte: weekStart },
+        },
+      }),
+      ctx.db.delivery.count({
+        where: {
+          ...baseWhere,
+          deliveryDate: { gte: todayRange.gte, lt: todayRange.lt },
+        },
+      }),
+    ]);
 
-      const today = todayDateString();
-      const todayRange = dateRangeForDay(today);
+    const denom = totalDelivered + totalFailed;
+    const successRate = denom === 0 ? 0 : totalDelivered / denom;
 
-      const since30 = new Date();
-      since30.setUTCHours(0, 0, 0, 0);
-      since30.setUTCDate(since30.getUTCDate() - 30);
-
-      // Start of current week (Monday) in UTC
-      const weekStart = new Date();
-      weekStart.setUTCHours(0, 0, 0, 0);
-      const dow = weekStart.getUTCDay(); // 0 Sun .. 6 Sat
-      const daysFromMonday = (dow + 6) % 7; // Mon=0, Tue=1, ... Sun=6
-      weekStart.setUTCDate(weekStart.getUTCDate() - daysFromMonday);
-
-      const baseWhere = {
-        driverId:   input.driverId,
-        locationId: input.locationId,
-      };
-
-      const [totalDelivered, totalFailed, thisWeekDelivered, todayScheduled] = await Promise.all([
-        ctx.db.delivery.count({
-          where: {
-            ...baseWhere,
-            status:       'delivered',
-            deliveryDate: { gte: since30 },
-          },
-        }),
-        ctx.db.delivery.count({
-          where: {
-            ...baseWhere,
-            status:       'failed',
-            deliveryDate: { gte: since30 },
-          },
-        }),
-        ctx.db.delivery.count({
-          where: {
-            ...baseWhere,
-            status:      'delivered',
-            deliveredAt: { gte: weekStart },
-          },
-        }),
-        ctx.db.delivery.count({
-          where: {
-            ...baseWhere,
-            deliveryDate: { gte: todayRange.gte, lt: todayRange.lt },
-          },
-        }),
-      ]);
-
-      const denom = totalDelivered + totalFailed;
-      const successRate = denom === 0 ? 0 : totalDelivered / denom;
-
-      return {
-        totalDelivered,
-        totalFailed,
-        successRate,
-        thisWeekDelivered,
-        todayScheduled,
-      };
-    }),
+    return {
+      totalDelivered,
+      totalFailed,
+      successRate,
+      thisWeekDelivered,
+      todayScheduled,
+    };
+  }),
 });

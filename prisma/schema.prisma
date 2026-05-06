@@ -103,6 +103,8 @@ model User {
   purchases   Purchase[]
   deliveries  Delivery[]
   invitations Invitation[] @relation("InvitedBy")
+  pinFailure  PinFailure?
+  authAudits  AuthAuditLog[]
 
   @@map("users")
 }
@@ -190,6 +192,44 @@ model Delivery {
   driver   User?     @relation(fields: [driverId], references: [id])
 
   @@map("deliveries")
+}
+
+// Per-user PIN lockout state. One row per User the moment we see a failed PIN
+// attempt; updated atomically. `lockedUntil` is a hard floor — any
+// authenticate() call before that time is rejected without checking the PIN.
+model PinFailure {
+  userId         String    @id @db.Uuid
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime? @db.Timestamptz
+  lastAttemptAt  DateTime  @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pin_failures")
+}
+
+// Append-only audit trail for credential events. Today: PIN auth attempts
+// (authenticate, changePin) and the public driver-list lookup. Read by the
+// IP-rate-limit gate (count rows per ip+scope in a sliding window).
+//
+// userId is nullable: an attempt against a non-existent userId still gets a
+// row so brute-force enumeration is visible in the log.
+model AuthAuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope      String   // e.g. "driver.authenticate", "driver.changePin", "driver.getList"
+  userId     String?  @db.Uuid
+  locationId String?  @db.Uuid
+  ip         String?
+  userAgent  String?
+  success    Boolean
+  reason     String?  // short tag for failure cases ("locked", "rate_limited", "bad_pin", "no_user")
+  createdAt  DateTime @default(now()) @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([ip, scope, createdAt])
+  @@index([userId, createdAt])
+  @@map("auth_audit_log")
 }
 
 model Invitation {
